@@ -11,8 +11,8 @@ Three capabilities:
 Env vars required:
   GEMINI_API_KEY   — from Google AI Studio (aistudio.google.com)
 
-Model used: gemini-1.5-flash  (fast, cheap, good enough for structured summaries)
-Swap to gemini-1.5-pro for richer reasoning if needed.
+Model used: gemini-2.5-flash  (fast, cheap, good enough for structured summaries)
+Swap to gemini-2.5-pro for richer reasoning if needed.
 """
 
 import os
@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-_GEMINI_MODEL = "gemini-1.5-flash"
+_GEMINI_MODEL = "gemini-2.5-flash"
 
 
 # ─────────────────────────────────────────────────────────────

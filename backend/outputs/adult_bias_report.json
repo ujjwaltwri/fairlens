@@ -1,10 +1,12 @@
 {
   "report_metadata": {
-    "generated_at": "2026-04-21T12:52:33.905241",
+    "generated_at": "2026-04-21T13:47:20.794265",
     "dataset_name": "adult",
     "dataset_label": "UCI Adult (Census Income)",
-    "report_version": "1.0"
+    "report_version": "2.0"
   },
+  "gemini_narrative": null,
+  "gemini_recommendation": null,
   "data_audit": {
     "n_rows": 47621,
     "target": "income",
@@ -131,16 +133,18 @@
         "before_tpr_gap": 0.2976,
         "after_tpr_gap": 0.2976,
         "before_accuracy": 0.8214345708046363,
-        "after_accuracy": 0.8214345708046363
+        "after_accuracy": 0.8214345708046363,
+        "accuracy_cost_per_bias_point": 0.0
       },
       "fairness_constraint": {
         "before_score": 46,
         "after_score": 17,
         "improvement": 29,
         "before_tpr_gap": 0.2976,
-        "after_tpr_gap": 0.0724,
+        "after_tpr_gap": 0.0749,
         "before_accuracy": 0.8214345708046363,
-        "after_accuracy": 0.8102637325718125
+        "after_accuracy": 0.8105996976314463,
+        "accuracy_cost_per_bias_point": 0.000374
       },
       "threshold_calibration": {
         "before_score": 0,
@@ -149,14 +153,15 @@
         "before_tpr_gap": 0,
         "after_tpr_gap": 0,
         "before_accuracy": 0.8214345708046363,
-        "after_accuracy": 0.5971778934990761
+        "after_accuracy": 0.5971778934990761,
+        "accuracy_cost_per_bias_point": 0.224257
       }
     },
     "best_strategy": "fairness_constraint",
     "recommended_actions": [
       "Apply reweighing to fix disparate impact on 'sex_binary' (DIR=0.36)",
-      "Protected attribute 'sex_binary' is statistically associated with outcome \u2014 investigate proxy features",
-      "True positive rate gap of 0.298 detected \u2014 apply equalized odds post-processing",
+      "'sex_binary' is statistically associated with outcome \u2014 investigate proxy features",
+      "TPR gap of 0.298 detected \u2014 apply equalized odds post-processing",
       "MEDIUM RISK: Apply at least one mitigation strategy before deployment"
     ]
   }
