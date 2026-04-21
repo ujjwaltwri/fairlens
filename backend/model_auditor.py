@@ -352,7 +352,6 @@ def audit_all_models(datasets_dict, model_type="logistic", verbose=True):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/home/claude/bias_audit/scripts")
     from data_loader import load_all
 
     datasets = load_all()

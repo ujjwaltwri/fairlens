@@ -36,7 +36,8 @@ except ImportError:
     print("[WARN] reportlab not available — PDF generation disabled")
 
 
-OUTPUT_DIR = Path('./outputs')
+import os as _os_fix
+OUTPUT_DIR = Path(_os_fix.path.join(_os_fix.path.dirname(_os_fix.path.abspath(__file__)), "outputs"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -444,7 +445,6 @@ def generate_all_reports(datasets_dict, data_audits, model_audits, mitigations):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, "/home/claude/bias_audit/scripts")
     from data_loader import load_all
     from data_auditor import audit_all
     from model_auditor import audit_all_models
