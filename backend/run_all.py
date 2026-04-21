@@ -1,149 +1,254 @@
 """
-run_all.py  —  FairLens
+run_all.py
+==========
 Single entry point: runs the complete bias audit pipeline on all 5 datasets.
 
-Usage (run from backend/ directory):
-  python run_all.py                    # all 5 datasets
-  python run_all.py --quick            # Adult only (~10s, good for demo)
-  python run_all.py --dataset adult    # one specific dataset
-  python run_all.py --model rf         # RandomForest instead of LogisticRegression
-  python run_all.py --skip-report      # skip PDF/JSON generation
-  python run_all.py --quiet            # suppress verbose output
+Pipeline per dataset:
+  1. Load data
+  2. Data audit (statistical bias analysis)
+  3. Model audit (train + SHAP + fairness metrics)
+  4. Apply 3 mitigation strategies
+  4.5. Gemini narrative + recommendation (optional — skipped if no API key or --no-gemini)
+  5. Generate JSON + PDF report
+
+Usage:
+  python run_all.py                    # Run all 5 datasets
+  python run_all.py --dataset adult    # Run only one dataset
+  python run_all.py --model rf         # Use RandomForest instead of LogisticRegression
+  python run_all.py --skip-report      # Skip PDF generation
+  python run_all.py --quick            # Run only Adult dataset (fastest demo)
+  python run_all.py --no-gemini        # Skip Gemini narrative/recommendation
 """
 
 import sys
-import os
 import argparse
 import time
 import json
+import os
+import logging
 from pathlib import Path
 
-# ── Ensure backend/ is on sys.path regardless of where script is called from ──
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
-
-OUTPUT_DIR = Path(_HERE) / "outputs"
+OUTPUT_DIR = Path('./outputs')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+logging.basicConfig(level=logging.WARNING)  # suppress INFO noise from sub-modules
+logger = logging.getLogger(__name__)
 
 
 def print_banner():
     print("""
 ╔══════════════════════════════════════════════════════════════╗
-║              FairLens — AI Bias Audit System                 ║
+║           FAIRLENS — Full Pipeline Runner                    ║
 ║         Unbiased AI Decision — Hack2Skill Hackathon          ║
 ╚══════════════════════════════════════════════════════════════╝
     """)
 
 
 def print_section(title):
-    print(f"\n{'─'*60}\n  {title}\n{'─'*60}")
+    print(f"\n{'─'*60}")
+    print(f"  {title}")
+    print(f"{'─'*60}")
 
 
-def run_pipeline(dataset_names, model_type="logistic", skip_report=False, verbose=True):
+def _gemini_available() -> bool:
+    """Return True if GEMINI_API_KEY is set in the environment."""
+    return bool(os.environ.get("GEMINI_API_KEY"))
+
+
+def run_pipeline(
+    dataset_names,
+    model_type="logistic",
+    skip_report=False,
+    use_gemini=True,
+    verbose=True,
+):
+    """Run the full audit pipeline on the given dataset names."""
+
     results_summary = {}
 
-    # Step 1: Load
+    # ── Step 1: Load datasets ──────────────────────────────
     print_section("Step 1 / 5 — Loading datasets")
-    from data_loader import (load_adult, load_compas, load_german_credit,
-                              load_utrecht, load_diabetes_130)
-    loaders = {"adult": load_adult, "compas": load_compas, "german": load_german_credit,
-               "utrecht": load_utrecht, "diabetes130": load_diabetes_130}
+    from data_loader import (
+        load_adult, load_compas, load_german_credit,
+        load_utrecht, load_diabetes_130
+    )
+    loaders = {
+        "adult":       load_adult,
+        "compas":      load_compas,
+        "german":      load_german_credit,
+        "utrecht":     load_utrecht,
+        "diabetes130": load_diabetes_130,
+    }
 
     datasets = {}
     for name in dataset_names:
         if name not in loaders:
-            print(f"  [SKIP] Unknown dataset: {name}"); continue
+            print(f"  [SKIP] Unknown dataset: {name}")
+            continue
         try:
             t0 = time.time()
             datasets[name] = loaders[name]()
-            print(f"  ✓ {name} ({len(datasets[name]['df']):,} rows) in {time.time()-t0:.1f}s")
+            print(f"  ✓ {name} ({len(datasets[name]['df']):,} rows) "
+                  f"in {time.time()-t0:.1f}s")
         except Exception as e:
             print(f"  ✗ {name} failed: {e}")
 
     if not datasets:
-        print("No datasets loaded. Exiting."); return {}
+        print("No datasets loaded. Exiting.")
+        return {}
 
-    # Step 2: Data audits
-    print_section("Step 2 / 5 — Data audits")
+    # ── Step 2: Data audits ────────────────────────────────
+    print_section("Step 2 / 5 — Data audits (statistical bias analysis)")
     from data_auditor import audit_dataset
     data_audits = {}
     for name, ds in datasets.items():
         try:
             data_audits[name] = audit_dataset(ds, verbose=verbose)
-            s = data_audits[name]
-            print(f"\n  [{name}] Data bias score: {s['overall_bias_score']}/100  [{s['overall_severity']}]")
+            score = data_audits[name]["overall_bias_score"]
+            sev   = data_audits[name]["overall_severity"]
+            print(f"\n  [{name}] Data bias score: {score}/100  [{sev}]")
         except Exception as e:
             print(f"  ✗ {name} data audit failed: {e}")
             import traceback; traceback.print_exc()
 
-    # Step 3: Model audits
-    print_section(f"Step 3 / 5 — Model audits [{model_type}]")
+    # ── Step 3: Model audits ───────────────────────────────
+    print_section(
+        f"Step 3 / 5 — Model audits (train + SHAP + fairness metrics) [{model_type}]"
+    )
     from model_auditor import audit_model
     model_audits = {}
     for name, ds in datasets.items():
         try:
             model_audits[name] = audit_model(ds, model_type=model_type, verbose=verbose)
-            m = model_audits[name]
-            om = m["overall_metrics"]
-            print(f"\n  [{name}] Bias={m['bias_score']}/100 [{m['severity']}] | "
-                  f"Acc={om['accuracy']:.3f} AUC={om['roc_auc']:.3f} "
-                  f"TPR_gap={m['tpr_gap']:.3f} Flip={m['counterfactual_flip_rate']:.1%}")
+            score = model_audits[name]["bias_score"]
+            sev   = model_audits[name]["severity"]
+            acc   = model_audits[name]["overall_metrics"]["accuracy"]
+            auc   = model_audits[name]["overall_metrics"]["roc_auc"]
+            tpr_g = model_audits[name]["tpr_gap"]
+            flip  = model_audits[name]["counterfactual_flip_rate"]
+            print(f"\n  [{name}] Model bias score: {score}/100 [{sev}] | "
+                  f"Acc={acc:.3f} AUC={auc:.3f} TPR_gap={tpr_g:.3f} Flip={flip:.1%}")
         except Exception as e:
             print(f"  ✗ {name} model audit failed: {e}")
             import traceback; traceback.print_exc()
 
-    # Step 4: Mitigation
-    print_section("Step 4 / 5 — Applying mitigation strategies")
+    # ── Step 4: Mitigations ────────────────────────────────
+    print_section("Step 4 / 5 — Applying bias mitigation strategies")
     from mitigation import apply_all_mitigations
     mitigations = {}
     for name, ds in datasets.items():
+        mar = model_audits.get(name)
         try:
-            mitigations[name] = apply_all_mitigations(ds, model_audits.get(name), verbose=verbose)
-            best = max(mitigations[name].items(), key=lambda x: x[1].get("improvement", 0))
-            print(f"\n  [{name}] Best: {best[0]} (improvement: {best[1].get('improvement',0):+d} pts)")
+            mitigations[name] = apply_all_mitigations(ds, mar, verbose=verbose)
+            best = max(
+                mitigations[name].items(),
+                key=lambda x: x[1].get("improvement", 0)
+            )
+            print(f"\n  [{name}] Best: {best[0]} "
+                  f"(improvement: {best[1].get('improvement', 0):+d} points)")
         except Exception as e:
             print(f"  ✗ {name} mitigation failed: {e}")
             import traceback; traceback.print_exc()
 
-    # Step 5: Reports
-    report_paths = {}
+    # ── Step 4.5: Gemini narrative + recommendation ────────
+    gemini_narratives     = {}
+    gemini_recommendations = {}
+
+    run_gemini = use_gemini and _gemini_available()
+    if use_gemini and not _gemini_available():
+        print_section("Step 4.5 — Gemini AI [SKIPPED — GEMINI_API_KEY not set]")
+        print("  Set GEMINI_API_KEY in your environment to enable AI-generated narratives.")
+        print("  Or pass --no-gemini to suppress this message.")
+    elif not use_gemini:
+        print_section("Step 4.5 — Gemini AI [SKIPPED — --no-gemini flag]")
+    else:
+        print_section("Step 4.5 — Gemini AI narrative + recommendation")
+        from gemini import generate_narrative, generate_recommendation
+        for name in datasets:
+            if name not in data_audits or name not in model_audits or name not in mitigations:
+                continue
+            try:
+                t0 = time.time()
+                print(f"  [{name}] Generating narrative...", end=" ", flush=True)
+                gemini_narratives[name] = generate_narrative(
+                    datasets[name]["label"],
+                    data_audits[name],
+                    model_audits[name],
+                )
+                print(f"done ({time.time()-t0:.1f}s)")
+
+                t0 = time.time()
+                print(f"  [{name}] Generating recommendation...", end=" ", flush=True)
+                gemini_recommendations[name] = generate_recommendation(
+                    datasets[name]["label"],
+                    model_audits[name],
+                    mitigations[name],
+                )
+                print(f"done ({time.time()-t0:.1f}s)")
+
+            except Exception as e:
+                print(f"\n  ✗ [{name}] Gemini failed (non-fatal): {e}")
+                logger.debug(f"Gemini error for {name}", exc_info=True)
+
+    # ── Step 5: Reports ────────────────────────────────────
     if not skip_report:
         print_section("Step 5 / 5 — Generating reports (JSON + PDF)")
         from report_generator import generate_reports
+        report_paths = {}
         for name in datasets:
             if name in data_audits and name in model_audits and name in mitigations:
                 try:
-                    report_paths[name] = generate_reports(
-                        name, data_audits[name], model_audits[name], mitigations[name])
+                    paths = generate_reports(
+                        name,
+                        data_audits[name],
+                        model_audits[name],
+                        mitigations[name],
+                        gemini_narrative=gemini_narratives.get(name),
+                        gemini_recommendation=gemini_recommendations.get(name),
+                    )
+                    report_paths[name] = paths
                 except Exception as e:
                     print(f"  ✗ {name} report failed: {e}")
     else:
         print_section("Step 5 / 5 — Reports (skipped)")
+        report_paths = {}
 
-    # Summary
+    # ── Final summary ──────────────────────────────────────
     print_section("COMPLETE — Summary")
-    print(f"\n  {'Dataset':<20} {'Data':>6} {'Model':>6} {'Best':>12} {'Δ':>7}")
-    print(f"  {'─'*56}")
-    for name in datasets:
-        da_s = data_audits.get(name, {}).get("overall_bias_score", "–")
-        ma_s = model_audits.get(name, {}).get("bias_score", "–")
-        if name in mitigations and mitigations[name]:
-            best_n, best_r = max(mitigations[name].items(), key=lambda x: x[1].get("improvement", 0))
-            best_short = best_n.split("_")[0]
-            imp = best_r.get("improvement", 0)
-        else:
-            best_short, imp = "–", 0
-        print(f"  {name:<20} {str(da_s):>6} {str(ma_s):>6} {best_short:>12} {imp:>+7}")
+    header = f"\n  {'Dataset':<20} {'Data':>6} {'Model':>6} {'Best mit.':>10} {'Improv.':>8}"
+    if run_gemini:
+        header += f" {'Gemini':>8}"
+    print(header)
+    print(f"  {'─'*60}")
 
+    for name in datasets:
+        da_score = data_audits.get(name, {}).get("overall_bias_score", "–")
+        ma_score = model_audits.get(name, {}).get("bias_score", "–")
+        if name in mitigations and mitigations[name]:
+            best_name, best_r = max(
+                mitigations[name].items(),
+                key=lambda x: x[1].get("improvement", 0)
+            )
+            best_short  = best_name.split("_")[0]
+            improvement = best_r.get("improvement", 0)
+        else:
+            best_short, improvement = "–", 0
+
+        row = (f"  {name:<20} {str(da_score):>6} {str(ma_score):>6} "
+               f"{best_short:>10} {improvement:>+7}")
+        if run_gemini:
+            row += "  ✓" if name in gemini_narratives else "  –"
+        print(row)
+
+    print()
     if report_paths:
-        print("\n  Output files:")
+        print("  Output files:")
         for name, paths in report_paths.items():
             for fmt, path in paths.items():
-                if path: print(f"    {name} [{fmt}]: {path}")
+                if path and fmt != "report_data":
+                    print(f"    {name} [{fmt}]: {path}")
 
-    # Save summary JSON
-    summary_path = OUTPUT_DIR / "pipeline_summary.json"
+    # Build results dict
     for name in datasets:
         results_summary[name] = {
             "data_bias_score":  data_audits.get(name, {}).get("overall_bias_score"),
@@ -153,54 +258,95 @@ def run_pipeline(dataset_names, model_type="logistic", skip_report=False, verbos
             "model_accuracy":   model_audits.get(name, {}).get("overall_metrics", {}).get("accuracy"),
             "model_auc":        model_audits.get(name, {}).get("overall_metrics", {}).get("roc_auc"),
             "tpr_gap":          model_audits.get(name, {}).get("tpr_gap"),
+            "fpr_gap":          model_audits.get(name, {}).get("fpr_gap"),
+            "counterfactual_flip_rate": model_audits.get(name, {}).get("counterfactual_flip_rate"),
             "mitigation_improvements": {
-                s: r.get("improvement", 0) for s, r in mitigations.get(name, {}).items()
+                s: r.get("improvement", 0)
+                for s, r in mitigations.get(name, {}).items()
+            },
+            "gemini_narrative_generated":     name in gemini_narratives,
+            "gemini_recommendation_generated": name in gemini_recommendations,
+            "reports": {
+                k: v for k, v in report_paths.get(name, {}).items()
+                if k != "report_data"
             },
         }
 
-    def _j(o):
-        if isinstance(o, dict): return {k: _j(v) for k, v in o.items()}
-        if isinstance(o, list): return [_j(i) for i in o]
-        if hasattr(o, "item"):  return o.item()
-        return o
-
+    # Save summary JSON
+    summary_path = OUTPUT_DIR / "pipeline_summary.json"
     with open(summary_path, "w") as f:
-        json.dump(_j(results_summary), f, indent=2)
-    print(f"\n  Pipeline summary saved to: {summary_path}")
+        def _clean(obj):
+            if isinstance(obj, dict): return {k: _clean(v) for k, v in obj.items()}
+            if isinstance(obj, list): return [_clean(i) for i in obj]
+            if hasattr(obj, 'item'):  return obj.item()
+            return obj
+        json.dump(_clean(results_summary), f, indent=2)
+    print(f"\n  Pipeline summary: {summary_path}")
+
     return results_summary
 
 
+# ─────────────────────────────────────────────────────────────
+# CLI
+# ─────────────────────────────────────────────────────────────
+
 def main():
-    parser = argparse.ArgumentParser(description="FairLens — Full Pipeline Runner")
-    parser.add_argument("--dataset", type=str, default=None,
-                        help="Run one dataset: adult|compas|german|utrecht|diabetes130")
-    parser.add_argument("--model", type=str, default="logistic", choices=["logistic","rf"])
-    parser.add_argument("--skip-report", action="store_true")
-    parser.add_argument("--quick", action="store_true", help="Adult dataset only (~10s)")
-    parser.add_argument("--quiet", action="store_true")
+    parser = argparse.ArgumentParser(
+        description="FairLens — Full Pipeline Runner"
+    )
+    parser.add_argument(
+        "--dataset", type=str, default=None,
+        help="Run only one dataset (adult|compas|german|utrecht|diabetes130)"
+    )
+    parser.add_argument(
+        "--model", type=str, default="logistic", choices=["logistic", "rf"],
+        help="Model type: logistic (default) or rf (random forest)"
+    )
+    parser.add_argument(
+        "--skip-report", action="store_true",
+        help="Skip PDF/JSON report generation"
+    )
+    parser.add_argument(
+        "--quick", action="store_true",
+        help="Run only the Adult dataset (fastest, good for demo)"
+    )
+    parser.add_argument(
+        "--quiet", action="store_true",
+        help="Suppress verbose per-step output"
+    )
+    parser.add_argument(
+        "--no-gemini", action="store_true",
+        help="Skip Gemini narrative and recommendation generation"
+    )
     args = parser.parse_args()
 
     print_banner()
-    all_datasets = ["adult","compas","german","utrecht","diabetes130"]
+
+    all_datasets = ["adult", "compas", "german", "utrecht", "diabetes130"]
 
     if args.quick:
         chosen = ["adult"]
         print("  Quick mode: running Adult dataset only")
     elif args.dataset:
         if args.dataset not in all_datasets:
-            print(f"  Unknown dataset '{args.dataset}'. Choose from: {all_datasets}"); sys.exit(1)
+            print(f"  Unknown dataset '{args.dataset}'. Choose from: {all_datasets}")
+            sys.exit(1)
         chosen = [args.dataset]
     else:
         chosen = all_datasets
 
-    t0 = time.time()
+    model_type = "random_forest" if args.model == "rf" else "logistic"
+
+    t_total = time.time()
     run_pipeline(
         dataset_names=chosen,
-        model_type="random_forest" if args.model == "rf" else "logistic",
+        model_type=model_type,
         skip_report=args.skip_report,
+        use_gemini=not args.no_gemini,
         verbose=not args.quiet,
     )
-    print(f"\n  Total elapsed: {time.time()-t0:.1f}s\n  Done.\n")
+    print(f"\n  Total elapsed: {time.time()-t_total:.1f}s")
+    print("  Done.\n")
 
 
 if __name__ == "__main__":

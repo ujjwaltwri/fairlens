@@ -7,6 +7,7 @@ FastAPI backend — now with:
   - Async background jobs (no more blocking 60s requests)
   - Gemini chat endpoint
   - Job status polling
+  - Rate limiting via slowapi (10 req/hour/IP on heavy endpoints)
 
 Endpoints:
   GET  /                        — health check
@@ -21,13 +22,16 @@ Endpoints:
   POST /audit/full/{name}       — full pipeline async → returns job_id immediately
   POST /audit/upload            — upload CSV → full pipeline async → job_id
 
-  GET  /report/{name}/json      — download JSON report (redirects to Supabase URL)
-  GET  /report/{name}/pdf       — download PDF report (redirects to Supabase URL)
+  GET  /report/{name}/json      — redirect to Supabase Storage JSON URL
+  GET  /report/{name}/pdf       — redirect to Supabase Storage PDF URL
 
   POST /chat/{job_id}           — Gemini Q&A on a completed audit
+  POST /chat/dataset/{name}     — Gemini Q&A using latest audit for a named dataset
+
+  GET  /uploads                 — list all uploaded CSVs
 
 Run with:
-  uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+  uvicorn api:app --host 0.0.0.0 --port 8080 --reload
 """
 
 import sys
@@ -40,13 +44,21 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 
+# ── Rate limiting ──────────────────────────────────────────────────────────────
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+
+# ── Internal modules ───────────────────────────────────────────────────────────
 import database as db_ops
 import storage as storage_ops
 from gemini import generate_narrative, generate_recommendation, chat as gemini_chat
@@ -64,6 +76,10 @@ app = FastAPI(
     version="2.0.0",
 )
 
+# Register rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -79,6 +95,9 @@ AVAILABLE_DATASETS = {
     "diabetes130": "Diabetes 130-US Hospitals — medical readmission, age/race/gender bias",
 }
 
+# Heavy-endpoint rate limit — 10 full pipeline runs per hour per IP
+HEAVY_LIMIT = "10/hour"
+
 
 # ─────────────────────────────────────────────────────────────
 # Helpers
@@ -90,21 +109,16 @@ def _serialise(obj):
         return {k: _serialise(v) for k, v in obj.items() if not k.startswith("_")}
     if isinstance(obj, (list, tuple)):
         return [_serialise(i) for i in obj]
-    if isinstance(obj, (np.integer,)):
-        return int(obj)
-    if isinstance(obj, (np.floating,)):
-        return float(obj)
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, np.bool_):
-        return bool(obj)
+    if isinstance(obj, (np.integer,)):   return int(obj)
+    if isinstance(obj, (np.floating,)):  return float(obj)
+    if isinstance(obj, np.ndarray):      return obj.tolist()
+    if isinstance(obj, np.bool_):        return bool(obj)
     if hasattr(obj, "predict") or (hasattr(obj, "transform") and not isinstance(obj, dict)):
         return None
     return obj
 
 
 def _load_dataset(name: str) -> dict:
-    """Load a named dataset."""
     from data_loader import (
         load_adult, load_compas, load_german_credit,
         load_utrecht, load_diabetes_130
@@ -144,50 +158,55 @@ async def _run_pipeline_bg(
         from mitigation import apply_all_mitigations
         from report_generator import generate_reports
 
-        # Step 1 — Data audit
         logger.info(f"[Job {job_id}] Running data audit...")
         data_result = await asyncio.to_thread(audit_dataset, dataset_dict, False)
 
-        # Step 2 — Model audit
         logger.info(f"[Job {job_id}] Running model audit...")
         model_result = await asyncio.to_thread(
             audit_model, dataset_dict, model_type, False
         )
 
-        # Step 3 — Mitigation
         logger.info(f"[Job {job_id}] Running mitigation strategies...")
         mit_result = await asyncio.to_thread(
             apply_all_mitigations, dataset_dict, model_result, False
         )
 
-        # Step 4 — Gemini narrative + recommendation
-        narrative = None
+        # Gemini — non-fatal if API key is missing or call fails
+        narrative      = None
         recommendation = None
-        try:
-            logger.info(f"[Job {job_id}] Generating Gemini narrative...")
-            narrative = await asyncio.to_thread(
-                generate_narrative,
-                dataset_dict["label"],
-                data_result,
-                model_result,
-            )
-            recommendation = await asyncio.to_thread(
-                generate_recommendation,
-                dataset_dict["label"],
-                model_result,
-                mit_result,
-            )
-        except Exception as ge:
-            logger.warning(f"[Job {job_id}] Gemini failed (non-fatal): {ge}")
+        if os.environ.get("GEMINI_API_KEY"):
+            try:
+                logger.info(f"[Job {job_id}] Generating Gemini narrative...")
+                narrative = await asyncio.to_thread(
+                    generate_narrative,
+                    dataset_dict["label"],
+                    data_result,
+                    model_result,
+                )
+                recommendation = await asyncio.to_thread(
+                    generate_recommendation,
+                    dataset_dict["label"],
+                    model_result,
+                    mit_result,
+                )
+            except Exception as ge:
+                logger.warning(f"[Job {job_id}] Gemini failed (non-fatal): {ge}")
+        else:
+            logger.info(f"[Job {job_id}] GEMINI_API_KEY not set — skipping AI narrative")
 
-        # Step 5 — Generate local reports
         logger.info(f"[Job {job_id}] Generating reports...")
         report_paths = await asyncio.to_thread(
-            generate_reports, dataset_name, data_result, model_result, mit_result
+            generate_reports,
+            dataset_name,
+            data_result,
+            model_result,
+            mit_result,
+            narrative,
+            recommendation,
         )
 
-        # Step 6 — Upload reports to Supabase Storage
-        pdf_url, json_url = None, None
+        # Upload reports to Supabase Storage (non-fatal)
+        pdf_url = json_url = None
         try:
             pdf_url, json_url = await asyncio.to_thread(
                 storage_ops.upload_both_reports, report_paths, dataset_name
@@ -195,7 +214,7 @@ async def _run_pipeline_bg(
         except Exception as se:
             logger.warning(f"[Job {job_id}] Storage upload failed (non-fatal): {se}")
 
-        # Step 7 — Persist result to Supabase DB
+        # Persist to Supabase DB
         db_ops.save_audit_result(
             job_id=job_id,
             dataset_name=dataset_name,
@@ -224,9 +243,10 @@ async def _run_pipeline_bg(
 def root():
     db_ok = db_ops.health_check()
     return {
-        "status": "ok",
-        "service": "FairLens API v2.0",
-        "database": "connected" if db_ok else "error",
+        "status":             "ok",
+        "service":            "FairLens API v2.0",
+        "database":           "connected" if db_ok else "error",
+        "gemini_enabled":     bool(os.environ.get("GEMINI_API_KEY")),
         "available_datasets": AVAILABLE_DATASETS,
     }
 
@@ -253,7 +273,6 @@ def get_job(job_id: str):
     job = db_ops.get_job(job_id)
     if not job:
         raise HTTPException(404, f"Job '{job_id}' not found")
-    # Attach result summary if done
     if job["status"] == "done":
         result = db_ops.get_audit_result(job_id)
         if result:
@@ -280,22 +299,21 @@ def get_result(job_id: str):
     result = db_ops.get_audit_result(job_id)
     if not result:
         raise HTTPException(404, f"No result found for job '{job_id}'")
-    # Return full JSONB fields
     return {
-        "job_id":            result["job_id"],
-        "dataset_name":      result["dataset_name"],
-        "data_bias_score":   result["data_bias_score"],
-        "data_severity":     result["data_severity"],
-        "model_bias_score":  result["model_bias_score"],
-        "model_severity":    result["model_severity"],
-        "data_audit":        result.get("data_audit_json"),
-        "model_audit":       result.get("model_audit_json"),
-        "mitigation":        result.get("mitigation_json"),
-        "gemini_narrative":  result.get("gemini_narrative"),
-        "gemini_recommendation": result.get("gemini_recommendation"),
-        "report_pdf_url":    result.get("report_pdf_url"),
-        "report_json_url":   result.get("report_json_url"),
-        "created_at":        result.get("created_at"),
+        "job_id":                 result["job_id"],
+        "dataset_name":           result["dataset_name"],
+        "data_bias_score":        result["data_bias_score"],
+        "data_severity":          result["data_severity"],
+        "model_bias_score":       result["model_bias_score"],
+        "model_severity":         result["model_severity"],
+        "data_audit":             result.get("data_audit_json"),
+        "model_audit":            result.get("model_audit_json"),
+        "mitigation":             result.get("mitigation_json"),
+        "gemini_narrative":       result.get("gemini_narrative"),
+        "gemini_recommendation":  result.get("gemini_recommendation"),
+        "report_pdf_url":         result.get("report_pdf_url"),
+        "report_json_url":        result.get("report_json_url"),
+        "created_at":             result.get("created_at"),
     }
 
 
@@ -313,9 +331,9 @@ def run_data_audit(name: str):
     from data_auditor import audit_dataset
     result = audit_dataset(dataset, verbose=False)
     return {
-        "status": "ok",
+        "status":          "ok",
         "elapsed_seconds": round(time.time() - t0, 2),
-        "result": _serialise(result),
+        "result":          _serialise(result),
     }
 
 
@@ -331,24 +349,27 @@ def run_model_audit(name: str, model_type: str = "logistic"):
     from model_auditor import audit_model
     result = audit_model(dataset, model_type=model_type, verbose=False)
     return {
-        "status": "ok",
+        "status":          "ok",
         "elapsed_seconds": round(time.time() - t0, 2),
-        "result": _serialise(result),
+        "result":          _serialise(result),
     }
 
 
 # ─────────────────────────────────────────────────────────────
-# Routes — full pipeline (async)
+# Routes — full pipeline (async + rate-limited)
 # ─────────────────────────────────────────────────────────────
 
 @app.post("/audit/full/{name}")
+@limiter.limit(HEAVY_LIMIT)
 async def run_full_audit(
+    request: Request,
     name: str,
     background_tasks: BackgroundTasks,
     model_type: str = "logistic",
 ):
     """
     Start the full audit pipeline as a background job.
+    Rate-limited: 10 requests per hour per IP.
     Returns job_id immediately — poll GET /jobs/{job_id} for status.
     """
     if name not in AVAILABLE_DATASETS:
@@ -356,18 +377,15 @@ async def run_full_audit(
     if model_type not in ["logistic", "random_forest"]:
         raise HTTPException(400, "model_type must be 'logistic' or 'random_forest'")
 
-    # Create job record
     job = db_ops.create_job(dataset_name=name, model_type=model_type)
     job_id = job["id"]
 
-    # Load dataset synchronously (fast) then hand off to background
     try:
         dataset = _load_dataset(name)
     except Exception as e:
         db_ops.update_job_status(job_id, "failed", completed=True)
         raise HTTPException(500, f"Failed to load dataset: {e}")
 
-    # Validate loaded dataset
     val = validate_named_dataset(dataset)
     if not val["valid"]:
         db_ops.update_job_status(job_id, "failed", completed=True)
@@ -381,15 +399,17 @@ async def run_full_audit(
     )
 
     return {
-        "status": "accepted",
-        "job_id": job_id,
+        "status":   "accepted",
+        "job_id":   job_id,
         "poll_url": f"/jobs/{job_id}",
-        "message": "Pipeline started. Poll /jobs/{job_id} for status.",
+        "message":  "Pipeline started. Poll /jobs/{job_id} for status.",
     }
 
 
 @app.post("/audit/upload")
+@limiter.limit(HEAVY_LIMIT)
 async def audit_uploaded_csv(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     target_column: str = "target",
@@ -400,6 +420,7 @@ async def audit_uploaded_csv(
 ):
     """
     Upload a CSV → save to Supabase Storage → run full audit pipeline async.
+    Rate-limited: 10 requests per hour per IP.
     Returns job_id immediately.
     """
     if not file.filename.endswith(".csv"):
@@ -407,7 +428,7 @@ async def audit_uploaded_csv(
 
     content = await file.read()
 
-    # File-level validation first (before parsing)
+    # File-level validation (size, encoding, extension)
     file_val = validate_csv_file(content, file.filename)
     if not file_val["valid"]:
         raise HTTPException(422, detail={
@@ -416,14 +437,13 @@ async def audit_uploaded_csv(
             "suggestions": file_val["suggestions"],
         })
 
-    # Validate CSV
     try:
         import io
         df = pd.read_csv(io.BytesIO(content))
     except Exception as e:
         raise HTTPException(400, f"Could not parse CSV: {e}")
 
-    # DataFrame-level validation
+    # DataFrame-level validation (columns, balance, group sizes, etc.)
     df_val = validate_dataframe(
         df,
         target_column=target_column,
@@ -440,17 +460,17 @@ async def audit_uploaded_csv(
             "stats":       df_val["stats"],
         })
 
-    # Non-blocking warnings — include in response but continue
     validation_warnings = df_val["warnings"]
 
-    # Upload CSV to Supabase Storage
+    # Upload CSV to Supabase Storage (non-fatal)
+    storage_path = public_url = ""
     try:
         storage_path, public_url = storage_ops.upload_csv(content, file.filename)
     except Exception as e:
         logger.warning(f"Storage upload failed (continuing without): {e}")
-        storage_path, public_url = "", ""
 
-    # Save upload record
+    # Save upload record to DB (non-fatal)
+    upload_id = None
     try:
         upload_record = db_ops.save_upload(
             filename=file.filename,
@@ -463,23 +483,21 @@ async def audit_uploaded_csv(
         upload_id = upload_record["id"]
     except Exception as e:
         logger.warning(f"DB upload record failed (continuing): {e}")
-        upload_id = None
 
     # Build dataset dict
     df["_target_bin"] = (df[target_column].astype(str) == str(positive_label)).astype(int)
     df["_prot_bin"]   = pd.to_numeric(df[protected_column], errors="coerce").fillna(0).astype(int)
 
     dataset_dict = {
-        "df": df,
-        "target": "_target_bin",
-        "protected": [protected_column],
+        "df":               df,
+        "target":           "_target_bin",
+        "protected":        [protected_column],
         "binary_protected": "_prot_bin",
-        "label": dataset_label,
-        "task": f"Predict {target_column}",
-        "positive_label": 1,
+        "label":            dataset_label,
+        "task":             f"Predict {target_column}",
+        "positive_label":   1,
     }
 
-    # Create job
     dataset_name = f"upload_{int(time.time())}"
     job = db_ops.create_job(
         dataset_name=dataset_name,
@@ -493,13 +511,13 @@ async def audit_uploaded_csv(
     )
 
     return {
-        "status": "accepted",
-        "job_id": job_id,
-        "upload_id": upload_id,
-        "n_rows": len(df),
-        "validation_warnings": validation_warnings,
-        "poll_url": f"/jobs/{job_id}",
-        "message": "CSV uploaded and pipeline started. Poll /jobs/{job_id} for status.",
+        "status":               "accepted",
+        "job_id":               job_id,
+        "upload_id":            upload_id,
+        "n_rows":               len(df),
+        "validation_warnings":  validation_warnings,
+        "poll_url":             f"/jobs/{job_id}",
+        "message":              "CSV uploaded and pipeline started. Poll /jobs/{job_id} for status.",
     }
 
 
@@ -511,7 +529,9 @@ async def audit_uploaded_csv(
 def get_json_report(name: str):
     result = db_ops.get_latest_result_for_dataset(name)
     if not result or not result.get("report_json_url"):
-        raise HTTPException(404, f"No JSON report found for '{name}'. Run /audit/full/{name} first.")
+        raise HTTPException(
+            404, f"No JSON report found for '{name}'. Run /audit/full/{name} first."
+        )
     return RedirectResponse(url=result["report_json_url"])
 
 
@@ -519,7 +539,9 @@ def get_json_report(name: str):
 def get_pdf_report(name: str):
     result = db_ops.get_latest_result_for_dataset(name)
     if not result or not result.get("report_pdf_url"):
-        raise HTTPException(404, f"No PDF report found for '{name}'. Run /audit/full/{name} first.")
+        raise HTTPException(
+            404, f"No PDF report found for '{name}'. Run /audit/full/{name} first."
+        )
     return RedirectResponse(url=result["report_pdf_url"])
 
 
@@ -536,7 +558,7 @@ class ChatRequest(BaseModel):
 def chat_with_audit(job_id: str, body: ChatRequest):
     """
     Ask Gemini a question about a completed audit.
-    Fetches the full audit result from Supabase and passes it as context.
+    Fetches full context from Supabase.
 
     Body: { "question": "Why is the bias score so high?", "conversation_history": [...] }
     """
@@ -548,9 +570,9 @@ def chat_with_audit(job_id: str, body: ChatRequest):
     if not job or job["status"] != "done":
         raise HTTPException(400, "Audit job is not yet complete")
 
-    data_audit  = result.get("data_audit_json", {}) or {}
+    data_audit  = result.get("data_audit_json",  {}) or {}
     model_audit = result.get("model_audit_json", {}) or {}
-    mit_results = result.get("mitigation_json", {}) or {}
+    mit_results = result.get("mitigation_json",  {}) or {}
 
     answer = gemini_chat(
         question=body.question,
@@ -562,26 +584,22 @@ def chat_with_audit(job_id: str, body: ChatRequest):
         conversation_history=body.conversation_history,
     )
 
-    return {
-        "job_id":   job_id,
-        "question": body.question,
-        "answer":   answer,
-    }
+    return {"job_id": job_id, "question": body.question, "answer": answer}
 
 
 @app.post("/chat/dataset/{name}")
 def chat_with_dataset(name: str, body: ChatRequest):
     """
     Same as /chat/{job_id} but looks up the latest audit for a named dataset.
-    Convenience endpoint for the frontend dashboard.
+    Convenience endpoint for the dashboard.
     """
     result = db_ops.get_latest_result_for_dataset(name)
     if not result:
         raise HTTPException(404, f"No audit result found for dataset '{name}'")
 
-    data_audit  = result.get("data_audit_json", {}) or {}
+    data_audit  = result.get("data_audit_json",  {}) or {}
     model_audit = result.get("model_audit_json", {}) or {}
-    mit_results = result.get("mitigation_json", {}) or {}
+    mit_results = result.get("mitigation_json",  {}) or {}
 
     answer = gemini_chat(
         question=body.question,
@@ -593,11 +611,7 @@ def chat_with_dataset(name: str, body: ChatRequest):
         conversation_history=body.conversation_history,
     )
 
-    return {
-        "dataset_name": name,
-        "question":     body.question,
-        "answer":       answer,
-    }
+    return {"dataset_name": name, "question": body.question, "answer": answer}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -606,7 +620,6 @@ def chat_with_dataset(name: str, body: ChatRequest):
 
 @app.get("/uploads")
 def list_uploads():
-    """List all uploaded CSVs."""
     return {"uploads": db_ops.list_uploads()}
 
 
@@ -616,4 +629,4 @@ def list_uploads():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
