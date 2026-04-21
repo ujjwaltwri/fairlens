@@ -45,7 +45,8 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -70,6 +71,9 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path("./outputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+# ── Frontend directory (project_root/frontend) ─────────────────────────────────
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
 app = FastAPI(
     title="FairLens API",
     description="FairLens — AI Bias Detection & Mitigation Platform",
@@ -86,6 +90,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Serve frontend static files ────────────────────────────────────────────────
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 AVAILABLE_DATASETS = {
     "adult":       "UCI Adult (Census Income) — income prediction, gender + race bias",
@@ -621,6 +628,21 @@ def chat_with_dataset(name: str, body: ChatRequest):
 @app.get("/uploads")
 def list_uploads():
     return {"uploads": db_ops.list_uploads()}
+
+
+# ─────────────────────────────────────────────────────────────
+# Routes — frontend (must be last — catches all unmatched paths)
+# ─────────────────────────────────────────────────────────────
+
+@app.get("/app")
+@app.get("/ui")
+@app.get("/dashboard")
+async def serve_frontend():
+    return FileResponse(str(FRONTEND_DIR / "index.html"))
+
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str):
+    return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 
 # ─────────────────────────────────────────────────────────────
