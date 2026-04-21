@@ -745,7 +745,7 @@ function AuditPage({ initDs }) {
 }
 
 /* ═══════════════════════════════
-   UPLOAD PAGE — fixed with job polling
+   UPLOAD PAGE — Fully fixed dropdown mapping
 ═══════════════════════════════ */
 function UploadPage({ addToast }) {
   const [file,      setFile]      = useState(null);
@@ -754,7 +754,7 @@ function UploadPage({ addToast }) {
   const [prot,      setProt]      = useState('');
   const [loading,   setLoading]   = useState(false);
   const [jobId,     setJobId]     = useState(null);
-  const [jobStatus, setJobStatus] = useState(null); // 'pending'|'running'|'done'|'failed'
+  const [jobStatus, setJobStatus] = useState(null); 
   const [result,    setResult]    = useState(null);
   const [columns,   setColumns]   = useState([]);
   const [valErrors, setValErrors] = useState([]);
@@ -781,7 +781,6 @@ function UploadPage({ addToast }) {
           clearInterval(pollRef.current);
           pollRef.current = null;
           setLoading(false);
-          // Fetch full result
           const rRes  = await fetch(`${API}/results/${jobId}`);
           const rData = await rRes.json();
           setResult(rData);
@@ -797,8 +796,8 @@ function UploadPage({ addToast }) {
       }
     };
 
-    poll(); // immediate first check
-    pollRef.current = setInterval(poll, 3000); // then every 3s
+    poll(); 
+    pollRef.current = setInterval(poll, 3000); 
   }, [jobId]);
 
   const parseHeaders = f => {
@@ -841,11 +840,23 @@ function UploadPage({ addToast }) {
     setJobId(null);
     setJobStatus(null);
 
+    let finalTarget = target.trim();
+    let finalProt = prot.trim();
+
+    // Exact string match from columns array to prevent 422 errors due to case sensitivity
+    if (columns.length > 0) {
+      const matchT = columns.find(c => c.toLowerCase() === finalTarget.toLowerCase());
+      if (matchT) finalTarget = matchT;
+      const matchP = columns.find(c => c.toLowerCase() === finalProt.toLowerCase());
+      if (matchP) finalProt = matchP;
+    }
+
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('target_column', target.trim());
-      fd.append('protected_column', prot.trim());
+      fd.append('target_column', finalTarget);
+      fd.append('protected_column', finalProt);
+      
       const res  = await fetch(`${API}/audit/upload`, { method: 'POST', body: fd });
       const data = await res.json();
 
@@ -860,7 +871,6 @@ function UploadPage({ addToast }) {
         return;
       }
 
-      // Async job accepted — start polling
       setJobId(data.job_id);
       setJobStatus('pending');
       addToast('Upload accepted — auditing in background…', 'ok');
@@ -912,56 +922,66 @@ function UploadPage({ addToast }) {
             e('div', { className: 'drop-sub' }, file ? `${(file.size / 1024).toFixed(1)} KB · ${columns.length} columns detected` : 'or click to browse · CSV only')
           ),
 
-          // Column chips
+          // Visual column readout (Read Only chips)
           columns.length > 0 && e('div', null,
-            e('div', { className: 'field-label', style: { marginBottom: 8 } }, 'Detected columns — click to fill fields:'),
+            e('div', { className: 'field-label', style: { marginBottom: 8 } }, 'Detected columns:'),
             e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
               columns.map(col =>
-                e('button', {
+                e('div', {
                   key: col,
-                  onClick: () => {
-                    if (!target) { setTarget(col); return; }
-                    if (!prot)   { setProt(col);   return; }
-                    setProt(col);
-                  },
                   style: {
                     fontFamily: 'var(--mono)', fontSize: 11, padding: '4px 10px',
                     borderRadius: 4, border: '1px solid var(--rule2)',
                     background: col === target ? 'var(--green-dim)' : col === prot ? 'var(--amber-dim)' : 'var(--paper2)',
                     color: col === target ? 'var(--green)' : col === prot ? 'var(--amber)' : 'var(--ink-3)',
-                    cursor: 'pointer', transition: 'all .15s ease',
                     borderColor: col === target ? 'var(--green-border)' : col === prot ? 'var(--amber-border)' : 'var(--rule2)',
                   }
                 }, col)
               )
-            ),
-            e('div', { style: { fontSize: 11, color: 'var(--ink-5)', fontFamily: 'var(--mono)', marginTop: 6 } },
-              e('span', { style: { background: 'var(--green-dim)', color: 'var(--green)', padding: '2px 6px', borderRadius: 3, marginRight: 6 } }, 'green = target'),
-              e('span', { style: { background: 'var(--amber-dim)', color: 'var(--amber)', padding: '2px 6px', borderRadius: 3 } }, 'amber = protected')
             )
           ),
 
-          // Column inputs
+          // Dropdown selects for Target and Protected columns
           e('div', { className: 'grid-2', style: { gap: 14 } },
             e('div', null,
               e('label', { className: 'field-label' }, 'Target Column'),
-              e('input', {
-                type: 'text', className: 'field-input',
-                placeholder: 'e.g. income, hired, label',
-                value: target,
-                onChange: ev => setTarget(ev.target.value),
-                style: target ? { borderColor: 'var(--green)', boxShadow: '0 0 0 3px var(--green-glow)' } : {}
-              })
+              columns.length > 0 
+              ? e('select', {
+                  className: 'field-input',
+                  value: target,
+                  onChange: ev => setTarget(ev.target.value),
+                  style: target ? { borderColor: 'var(--green)', boxShadow: '0 0 0 3px var(--green-glow)', cursor: 'pointer' } : { cursor: 'pointer' }
+                },
+                  e('option', { value: '', disabled: true }, 'Select target column...'),
+                  columns.map(c => e('option', { key: c, value: c }, c))
+                )
+              : e('input', {
+                  type: 'text', className: 'field-input',
+                  placeholder: 'e.g. income, hired, label',
+                  value: target,
+                  onChange: ev => setTarget(ev.target.value),
+                  style: target ? { borderColor: 'var(--green)', boxShadow: '0 0 0 3px var(--green-glow)' } : {}
+                })
             ),
             e('div', null,
               e('label', { className: 'field-label' }, 'Protected Column'),
-              e('input', {
-                type: 'text', className: 'field-input',
-                placeholder: 'e.g. gender, race, age',
-                value: prot,
-                onChange: ev => setProt(ev.target.value),
-                style: prot ? { borderColor: 'var(--amber)', boxShadow: '0 0 0 3px rgba(184,96,10,0.1)' } : {}
-              })
+              columns.length > 0
+              ? e('select', {
+                  className: 'field-input',
+                  value: prot,
+                  onChange: ev => setProt(ev.target.value),
+                  style: prot ? { borderColor: 'var(--amber)', boxShadow: '0 0 0 3px rgba(184,96,10,0.1)', cursor: 'pointer' } : { cursor: 'pointer' }
+                },
+                  e('option', { value: '', disabled: true }, 'Select protected column...'),
+                  columns.map(c => e('option', { key: c, value: c }, c))
+                )
+              : e('input', {
+                  type: 'text', className: 'field-input',
+                  placeholder: 'e.g. gender, race, age',
+                  value: prot,
+                  onChange: ev => setProt(ev.target.value),
+                  style: prot ? { borderColor: 'var(--amber)', boxShadow: '0 0 0 3px rgba(184,96,10,0.1)' } : {}
+                })
             )
           ),
 
