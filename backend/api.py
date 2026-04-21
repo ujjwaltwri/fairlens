@@ -44,7 +44,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -71,9 +71,7 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path("./outputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Frontend directory (project_root/frontend) ─────────────────────────────────
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-
 app = FastAPI(
     title="FairLens API",
     description="FairLens — AI Bias Detection & Mitigation Platform",
@@ -90,10 +88,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ── Serve frontend static files ────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
 AVAILABLE_DATASETS = {
     "adult":       "UCI Adult (Census Income) — income prediction, gender + race bias",
     "compas":      "COMPAS Recidivism — criminal justice, racial bias",
@@ -412,6 +407,11 @@ async def run_full_audit(
         "message":  "Pipeline started. Poll /jobs/{job_id} for status.",
     }
 
+@app.get("/app")
+@app.get("/ui")
+@app.get("/dashboard")
+async def serve_frontend():
+    return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 @app.post("/audit/upload")
 @limiter.limit(HEAVY_LIMIT)
@@ -419,11 +419,11 @@ async def audit_uploaded_csv(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    target_column: str = "target",
-    protected_column: str = "protected",
-    positive_label: str = "1",
-    dataset_label: str = "Uploaded dataset",
-    model_type: str = "logistic",
+    target_column: str = Form(...),
+    protected_column: str = Form(...),
+    positive_label: str = Form("1"),
+    dataset_label: str = Form("Uploaded dataset"),
+    model_type: str = Form("logistic"),
 ):
     """
     Upload a CSV → save to Supabase Storage → run full audit pipeline async.
@@ -450,6 +450,28 @@ async def audit_uploaded_csv(
     except Exception as e:
         raise HTTPException(400, f"Could not parse CSV: {e}")
 
+    # Surface available columns in every 422 so the UI can show them
+    available_columns = list(df.columns)
+
+    # Quick column-existence check before running full validation —
+    # gives a clear, actionable error instead of a cryptic validator message
+    missing = []
+    if target_column not in df.columns:
+        missing.append(f"Target column '{target_column}' not found in CSV")
+    if protected_column not in df.columns:
+        missing.append(f"Protected column '{protected_column}' not found in CSV")
+
+    if missing:
+        raise HTTPException(422, detail={
+            "message":           "Column names do not match your CSV",
+            "errors":            missing,
+            "available_columns": available_columns,
+            "suggestions":       [
+                f"Your CSV has these columns: {available_columns}",
+                "Set target_column and protected_column to match exactly (case-sensitive).",
+            ],
+        })
+
     # DataFrame-level validation (columns, balance, group sizes, etc.)
     df_val = validate_dataframe(
         df,
@@ -460,11 +482,12 @@ async def audit_uploaded_csv(
     )
     if not df_val["valid"]:
         raise HTTPException(422, detail={
-            "message":     "Data validation failed",
-            "errors":      df_val["errors"],
-            "warnings":    df_val["warnings"],
-            "suggestions": df_val["suggestions"],
-            "stats":       df_val["stats"],
+            "message":           "Data validation failed",
+            "errors":            df_val["errors"],
+            "warnings":          df_val["warnings"],
+            "suggestions":       df_val["suggestions"],
+            "stats":             df_val["stats"],
+            "available_columns": available_columns,
         })
 
     validation_warnings = df_val["warnings"]
@@ -493,7 +516,21 @@ async def audit_uploaded_csv(
 
     # Build dataset dict
     df["_target_bin"] = (df[target_column].astype(str) == str(positive_label)).astype(int)
-    df["_prot_bin"]   = pd.to_numeric(df[protected_column], errors="coerce").fillna(0).astype(int)
+
+    # Binarise protected column — handle both numeric and string (e.g. male/female)
+    prot_series = df[protected_column]
+    prot_numeric = pd.to_numeric(prot_series, errors="coerce")
+    if prot_numeric.isna().mean() > 0.5:
+        # String-valued protected attribute (e.g. "male"/"female", "White"/"Black")
+        # Encode as 0/1 using sorted unique values — last alphabetically = 1
+        prot_vals = sorted(prot_series.dropna().unique().tolist())
+        df["_prot_bin"] = (prot_series == prot_vals[-1]).astype(int)
+        logger.info(
+            f"String protected column '{protected_column}': "
+            f"encoded {prot_vals[0]}=0, {prot_vals[-1]}=1"
+        )
+    else:
+        df["_prot_bin"] = prot_numeric.fillna(0).astype(int)
 
     dataset_dict = {
         "df":               df,
@@ -628,21 +665,6 @@ def chat_with_dataset(name: str, body: ChatRequest):
 @app.get("/uploads")
 def list_uploads():
     return {"uploads": db_ops.list_uploads()}
-
-
-# ─────────────────────────────────────────────────────────────
-# Routes — frontend (must be last — catches all unmatched paths)
-# ─────────────────────────────────────────────────────────────
-
-@app.get("/app")
-@app.get("/ui")
-@app.get("/dashboard")
-async def serve_frontend():
-    return FileResponse(str(FRONTEND_DIR / "index.html"))
-
-@app.get("/{full_path:path}")
-async def catch_all(full_path: str):
-    return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 
 # ─────────────────────────────────────────────────────────────

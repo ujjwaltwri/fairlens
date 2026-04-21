@@ -1,0 +1,167 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-04-21T19:09:59.371773",
+    "dataset_name": "upload_1776778755",
+    "dataset_label": "Uploaded dataset",
+    "report_version": "2.0",
+    "gemini_enhanced": true
+  },
+  "data_audit": {
+    "n_rows": 225,
+    "target": "_target_bin",
+    "overall_bias_score": 90,
+    "overall_severity": "HIGH",
+    "attribute_results": {
+      "_prot_bin": {
+        "disparate_impact_ratio": 0.4706,
+        "dir_pass": false,
+        "demographic_parity_gap": 0.18,
+        "positive_rate_privileged": 0.34,
+        "positive_rate_unprivileged": 0.16,
+        "chi2_pvalue": 0.007423,
+        "chi2_significant": true,
+        "bias_score": 90,
+        "severity": "HIGH",
+        "top_proxy_features": [
+          [
+            "div15(hidden)",
+            0.8183
+          ],
+          [
+            "mainid(hidden)",
+            0.8165
+          ],
+          [
+            "Strength(hidden)",
+            0.3397
+          ],
+          [
+            "A3(Age,Gender, test)",
+            0.2658
+          ],
+          [
+            "Lifttest(hidden)",
+            0.2165
+          ]
+        ]
+      }
+    }
+  },
+  "model_audit": {
+    "model_type": "logistic",
+    "overall_metrics": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "roc_auc": 1.0
+    },
+    "group_metrics": {
+      "privileged": {
+        "n": 35,
+        "accuracy": 1.0,
+        "tpr": 1.0,
+        "fpr": 0.0,
+        "precision": 1.0,
+        "positive_rate": 0.3429
+      },
+      "unprivileged": {
+        "n": 22,
+        "accuracy": 1.0,
+        "tpr": 1.0,
+        "fpr": 0.0,
+        "precision": 1.0,
+        "positive_rate": 0.1818
+      }
+    },
+    "tpr_gap": 0.0,
+    "fpr_gap": 0.0,
+    "predictive_parity_gap": 0.0,
+    "counterfactual_flip_rate": 0.0,
+    "model_dir": 0.5302,
+    "bias_score": 10,
+    "severity": "LOW",
+    "top_shap_features": [
+      [
+        "hired-by-expert",
+        2.8572
+      ],
+      [
+        "livesnear(feature)",
+        0.3587
+      ],
+      [
+        "Suitability(target)",
+        0.2521
+      ],
+      [
+        "Should-hire(target)",
+        0.175
+      ],
+      [
+        "Shouldnothire",
+        0.175
+      ],
+      [
+        "Gender(feature,sensitive)",
+        0.1579
+      ],
+      [
+        "_prot_bin",
+        0.1579
+      ],
+      [
+        "A4(postive-dicr)",
+        0.1498
+      ],
+      [
+        "Candidate-loss-when-nothired(hidden)",
+        0.1435
+      ],
+      [
+        "A3(Age,Gender, test)",
+        0.1002
+      ]
+    ]
+  },
+  "mitigation": {
+    "strategies": {
+      "reweighing": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0.0,
+        "after_tpr_gap": 0.0,
+        "before_accuracy": 1.0,
+        "after_accuracy": 1.0
+      },
+      "fairness_constraint": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0.0,
+        "after_tpr_gap": 0.0,
+        "before_accuracy": 1.0,
+        "after_accuracy": 1.0
+      },
+      "threshold_calibration": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0,
+        "after_tpr_gap": 0,
+        "before_accuracy": 1.0,
+        "after_accuracy": 1.0
+      }
+    },
+    "best_strategy": "reweighing",
+    "recommended_actions": [
+      "Apply reweighing to fix disparate impact on '_prot_bin' (DIR=0.47)",
+      "Protected attribute '_prot_bin' is statistically associated with outcome \u2014 investigate proxy features",
+      "LOW RISK: Monitor for drift, re-audit quarterly"
+    ]
+  },
+  "gemini_analysis": {
+    "narrative": "Automated narrative unavailable (429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-2.5-flash\nPlease retry in 1.341425707s. [links {\n  description: \"Learn more about Gemini API quotas\"\n  url: \"https://ai.google.dev/gemini-api/docs/rate-limits\"\n}\n, violations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_requests\"\n  quota_id: \"GenerateRequestsPerMinutePerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.5-flash\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n  quota_value: 5\n}\n, retry_delay {\n  seconds: 1\n}\n]). Data bias score: 90/100 [HIGH]. Model bias score: 10/100 [LOW].",
+    "recommendation": "Automated recommendation unavailable (429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-2.5-flash\nPlease retry in 858.886771ms. [links {\n  description: \"Learn more about Gemini API quotas\"\n  url: \"https://ai.google.dev/gemini-api/docs/rate-limits\"\n}\n, violations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_requests\"\n  quota_id: \"GenerateRequestsPerMinutePerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.5-flash\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n  quota_value: 5\n}\n, retry_delay {\n}\n]). Based on raw results, 'reweighing' showed the highest improvement (+0 points)."
+  }
+}
