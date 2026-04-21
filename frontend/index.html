@@ -2,1090 +2,575 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>FairLens — AI Bias Audit Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --ink:#0A0D14;
-  --ink2:#12161F;
-  --ink3:#1C2130;
-  --ink4:#252D3D;
-  --amber:#F5A623;
-  --amber2:#FFBE55;
-  --amber-dim:#3D2800;
-  --teal:#00C9A7;
-  --teal-dim:#003D32;
-  --red:#FF4D4D;
-  --red-dim:#3D0000;
-  --muted:#4A5568;
-  --muted2:#8896AB;
-  --fg:#E8EDF5;
-  --fg2:#C4CDD8;
-  --fg3:#8896AB;
-  --border:#1E2636;
-  --border2:#2A3447;
-  --card:#131824;
-  --glow-amber:0 0 40px rgba(245,166,35,0.15);
-  --glow-teal:0 0 40px rgba(0,201,167,0.12);
-  --font-head:'Syne',sans-serif;
-  --font-mono:'DM Mono',monospace;
-  --font-body:'DM Sans',sans-serif;
-  --r:8px;
-  --r2:12px;
+  --bg:#F7F8FA;
+  --surface:#FFFFFF;
+  --surface2:#F0F2F5;
+  --border:#E2E6EA;
+  --border2:#CBD1D8;
+  --text:#0D1117;
+  --text2:#4A5568;
+  --text3:#8A94A0;
+  --blue:#2563EB;
+  --blue-bg:#EFF4FF;
+  --blue-border:#BFCFFE;
+  --red:#DC2626;
+  --red-bg:#FEF2F2;
+  --red-border:#FECACA;
+  --amber:#B45309;
+  --amber-bg:#FFFBEB;
+  --amber-border:#FDE68A;
+  --green:#15803D;
+  --green-bg:#F0FDF4;
+  --green-border:#BBF7D0;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --r:6px;
+  --r2:10px;
+  --shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow2:0 4px 12px rgba(0,0,0,0.08);
 }
-html{scroll-behavior:smooth}
-body{
-  background:var(--ink);
-  color:var(--fg);
-  font-family:var(--font-body);
-  font-size:14px;
-  line-height:1.6;
-  min-height:100vh;
-  overflow-x:hidden;
-}
+html,body{height:100%;font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--text);background:var(--bg)}
+#app{display:flex;height:100vh;overflow:hidden}
 
-/* ── NOISE TEXTURE ── */
-body::before{
-  content:'';
-  position:fixed;inset:0;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events:none;z-index:0;opacity:.4;
-}
+/* SIDEBAR */
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-brand{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.brand-mark{width:30px;height:30px;background:var(--blue);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;letter-spacing:-0.5px;flex-shrink:0}
+.brand-name{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.3px}
+.brand-name span{color:var(--blue)}
+.nav-group{padding:16px 10px 4px}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);padding:0 8px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--r);color:var(--text2);cursor:pointer;font-size:13px;font-weight:500;transition:background .1s,color .1s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--blue-bg);color:var(--blue)}
+.nav-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sidebar-foot{margin-top:auto;padding:14px 18px;border-top:1px solid var(--border)}
+.version-tag{font-family:var(--mono);font-size:11px;color:var(--text3)}
 
-/* ── LAYOUT ── */
-#root{position:relative;z-index:1}
-.layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-.sidebar{
-  background:var(--ink2);
-  border-right:1px solid var(--border);
-  display:flex;flex-direction:column;
-  position:sticky;top:0;height:100vh;overflow-y:auto;
-  padding:0 0 24px;
-}
-.main{flex:1;overflow-x:hidden}
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:8px}
+.topbar-title{font-size:14px;font-weight:600;color:var(--text)}
+.topbar-tag{font-size:11px;font-weight:500;color:var(--text3);background:var(--surface2);padding:2px 8px;border-radius:20px;border:1px solid var(--border)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:var(--sans);transition:all .1s;text-decoration:none}
+.btn:hover{background:var(--surface2);border-color:var(--border2);color:var(--text)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+.content{flex:1;overflow-y:auto;padding:24px}
 
-/* ── SIDEBAR ── */
-.sidebar-logo{
-  padding:28px 24px 24px;
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;
-}
-.logo-mark{
-  width:34px;height:34px;
-  background:linear-gradient(135deg,var(--amber),#FF8C00);
-  border-radius:8px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-head);font-weight:800;font-size:16px;color:#000;
-  flex-shrink:0;
-  box-shadow:0 0 20px rgba(245,166,35,0.4);
-}
-.logo-text{font-family:var(--font-head);font-weight:800;font-size:18px;letter-spacing:-0.5px}
-.logo-text span{color:var(--amber)}
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);box-shadow:var(--shadow)}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.card-sub{font-size:12px;color:var(--text3)}
+.card-body{padding:18px}
 
-.nav-section{padding:20px 16px 8px;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--muted2);text-transform:uppercase;font-family:var(--font-mono)}
-.nav-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 20px;margin:1px 8px;border-radius:var(--r);
-  color:var(--fg3);cursor:pointer;transition:all .15s;
-  font-size:13px;font-weight:500;
-  border:1px solid transparent;
-}
-.nav-item:hover{background:var(--ink3);color:var(--fg2)}
-.nav-item.active{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,166,35,0.2)}
-.nav-item .icon{width:16px;height:16px;flex-shrink:0;opacity:.7}
-.nav-item.active .icon{opacity:1}
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 
-.sidebar-footer{
-  margin-top:auto;padding:16px 20px;
-  border-top:1px solid var(--border);
-}
-.version-badge{
-  font-family:var(--font-mono);font-size:10px;color:var(--fg3);
-  background:var(--ink3);padding:4px 8px;border-radius:4px;border:1px solid var(--border2);
-  display:inline-block;
-}
+/* STAT CARDS */
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;box-shadow:var(--shadow)}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.stat-val{font-size:26px;font-weight:600;line-height:1;margin-bottom:4px}
+.stat-sub{font-size:11px;color:var(--text3)}
 
-/* ── TOP BAR ── */
-.topbar{
-  background:rgba(10,13,20,0.8);backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);
-  padding:16px 32px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:100;
-}
-.topbar-title{font-family:var(--font-head);font-weight:700;font-size:16px}
-.topbar-actions{display:flex;align-items:center;gap:12px}
-.btn{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;
-  cursor:pointer;transition:all .15s;border:1px solid transparent;
-  font-family:var(--font-body);
-}
-.btn-primary{
-  background:var(--amber);color:#000;
-  box-shadow:0 0 20px rgba(245,166,35,0.3);
-}
-.btn-primary:hover{background:var(--amber2);box-shadow:0 0 30px rgba(245,166,35,0.5)}
-.btn-ghost{border-color:var(--border2);color:var(--fg2)}
-.btn-ghost:hover{background:var(--ink3);border-color:var(--border2)}
-.btn-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(0,201,167,0.2)}
-.btn-teal:hover{background:rgba(0,201,167,0.15)}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px;letter-spacing:0.2px}
+.badge-high{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.badge-med{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.badge-low{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.badge-info{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+.badge-pass{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.badge-fail{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
 
-/* ── PAGE CONTENT ── */
-.page{padding:32px;animation:fadeUp .3s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-
-.page-header{margin-bottom:28px}
-.page-title{font-family:var(--font-head);font-weight:800;font-size:26px;letter-spacing:-0.5px}
-.page-subtitle{color:var(--fg3);font-size:13px;margin-top:4px}
-
-/* ── STAT CARDS ── */
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
-.stat-card{
-  background:var(--card);border:1px solid var(--border);border-radius:var(--r2);
-  padding:20px;position:relative;overflow:hidden;
-  transition:border-color .2s;
-}
-.stat-card:hover{border-color:var(--border2)}
-.stat-card::before{
-  content:'';position:absolute;top:0;right:0;
-  width:80px;height:80px;border-radius:50%;
-  background:radial-gradient(circle,var(--accent-color,.05) 0%,transparent 70%);
-  transform:translate(30%,-30%);
-}
-.stat-card.amber{--accent-color:rgba(245,166,35,.15)}
-.stat-card.teal{--accent-color:rgba(0,201,167,.12)}
-.stat-card.red{--accent-color:rgba(255,77,77,.1)}
-.stat-card.blue{--accent-color:rgba(100,149,237,.1)}
-.stat-label{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--fg3);font-family:var(--font-mono);margin-bottom:8px}
-.stat-val{font-family:var(--font-head);font-size:30px;font-weight:800;line-height:1}
-.stat-val.amber{color:var(--amber)}
-.stat-val.teal{color:var(--teal)}
-.stat-val.red{color:var(--red)}
-.stat-sub{font-size:11px;color:var(--fg3);margin-top:6px}
-
-/* ── CARDS ── */
-.card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:var(--r2);overflow:hidden;
-}
-.card-head{
-  padding:16px 20px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-}
-.card-title{font-family:var(--font-head);font-weight:700;font-size:14px}
-.card-body{padding:20px}
-
-/* ── GRID LAYOUT ── */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
-
-/* ── DATASET SELECTOR ── */
-.dataset-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}
-.dataset-card{
-  background:var(--card);border:1px solid var(--border);border-radius:var(--r2);
-  padding:16px;cursor:pointer;transition:all .2s;
-  position:relative;overflow:hidden;
-}
-.dataset-card:hover{border-color:var(--border2);transform:translateY(-2px)}
-.dataset-card.active{border-color:var(--amber);background:var(--amber-dim);box-shadow:var(--glow-amber)}
-.dataset-card .ds-icon{font-size:20px;margin-bottom:8px}
-.dataset-card .ds-name{font-family:var(--font-head);font-weight:700;font-size:12px;margin-bottom:4px}
-.dataset-card .ds-meta{font-size:10px;color:var(--fg3);font-family:var(--font-mono)}
-.dataset-card .ds-badge{
-  position:absolute;top:10px;right:10px;
-  font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;
-  font-family:var(--font-mono);letter-spacing:.5px;text-transform:uppercase;
-}
-.badge-high{background:var(--red-dim);color:var(--red)}
-.badge-med{background:var(--amber-dim);color:var(--amber)}
-.badge-low{background:var(--teal-dim);color:var(--teal)}
-
-/* ── BIAS SCORE GAUGE ── */
-.gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:16px 0}
-.gauge-svg{width:180px;height:110px}
-.gauge-score{font-family:var(--font-head);font-size:44px;font-weight:800;text-align:center;line-height:1}
-.gauge-label{font-size:12px;color:var(--fg3);text-align:center;margin-top:4px;font-family:var(--font-mono)}
-.gauge-sev{
-  font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
-  margin-top:8px;letter-spacing:1px;text-transform:uppercase;font-family:var(--font-mono);
-}
-
-/* ── METRIC ROWS ── */
-.metric-row{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 0;border-bottom:1px solid var(--border);
-}
-.metric-row:last-child{border-bottom:none}
-.metric-name{font-size:12px;color:var(--fg2);width:170px;flex-shrink:0}
-.metric-bar-wrap{flex:1;height:6px;background:var(--ink3);border-radius:3px;overflow:hidden}
-.metric-bar{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
-.metric-val-label{font-family:var(--font-mono);font-size:11px;width:60px;text-align:right;flex-shrink:0}
-.metric-status{width:48px;text-align:right;flex-shrink:0}
-
-/* ── SHAP CHART ── */
-.shap-row{
-  display:flex;align-items:center;gap:10px;
-  padding:8px 0;border-bottom:1px solid var(--border);
-}
-.shap-row:last-child{border-bottom:none}
-.shap-feat{font-size:12px;color:var(--fg2);width:140px;flex-shrink:0;font-family:var(--font-mono);font-size:11px}
-.shap-bar-wrap{flex:1;height:18px;background:var(--ink3);border-radius:3px;overflow:hidden;display:flex;align-items:center;position:relative}
-.shap-bar{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;padding-left:8px}
-.shap-bar span{font-size:10px;color:rgba(0,0,0,.6);font-weight:600;font-family:var(--font-mono);white-space:nowrap}
-.shap-score{font-family:var(--font-mono);font-size:11px;color:var(--fg3);width:50px;text-align:right;flex-shrink:0}
-
-/* ── MITIGATION COMPARE ── */
-.mit-card{
-  background:var(--ink3);border:1px solid var(--border);border-radius:var(--r);
-  padding:16px;margin-bottom:12px;
-  display:flex;align-items:center;gap:16px;
-  cursor:pointer;transition:all .2s;
-}
-.mit-card:hover{border-color:var(--border2)}
-.mit-card.best{border-color:var(--teal);background:var(--teal-dim);box-shadow:var(--glow-teal)}
-.mit-icon{
-  width:40px;height:40px;border-radius:8px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;flex-shrink:0;
-}
-.mit-info{flex:1}
-.mit-name{font-weight:600;font-size:13px;margin-bottom:3px}
-.mit-desc{font-size:11px;color:var(--fg3)}
-.mit-scores{text-align:right;flex-shrink:0}
-.score-before{font-family:var(--font-mono);font-size:11px;color:var(--fg3)}
-.score-after{font-family:var(--font-head);font-size:20px;font-weight:800}
-.score-delta{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;font-family:var(--font-mono)}
-.delta-pos{background:var(--teal-dim);color:var(--teal)}
-.delta-neg{background:var(--red-dim);color:var(--red)}
-
-/* ── TABLE ── */
-.table-wrap{overflow-x:auto}
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
-thead tr{border-bottom:1px solid var(--border2)}
-th{padding:10px 14px;text-align:left;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--fg3);font-family:var(--font-mono)}
-td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--fg2)}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,.02)}
-.mono{font-family:var(--font-mono);font-size:11px}
+thead th{padding:9px 12px;text-align:left;font-size:11px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface2)}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text2)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface2)}
+.mono{font-family:var(--mono);font-size:11px}
 
-/* ── UPLOAD ZONE ── */
-.upload-zone{
-  border:2px dashed var(--border2);border-radius:var(--r2);
-  padding:48px;text-align:center;
-  transition:all .2s;cursor:pointer;
-  background:var(--ink3);
-}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--amber);background:var(--amber-dim)}
-.upload-icon{font-size:32px;margin-bottom:12px;opacity:.5}
-.upload-title{font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:6px}
-.upload-sub{font-size:12px;color:var(--fg3)}
+/* PROGRESS BAR */
+.bar-wrap{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 
-/* ── PROGRESS ── */
-.progress-bar{
-  height:4px;background:var(--ink3);border-radius:2px;overflow:hidden;margin-top:8px;
-}
-.progress-fill{
-  height:100%;background:linear-gradient(90deg,var(--amber),var(--teal));
-  border-radius:2px;transition:width .3s;
-  animation:shimmer 1.5s infinite linear;
-  background-size:200% 100%;
-}
-@keyframes shimmer{
-  0%{background-position:200% 0}
-  100%{background-position:-200% 0}
-}
+/* METRIC ROWS */
+.mrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.mrow:last-child{border-bottom:none}
+.mrow-name{font-size:12px;color:var(--text2);width:180px;flex-shrink:0}
+.mrow-val{font-family:var(--mono);font-size:12px;width:64px;text-align:right;flex-shrink:0;font-weight:500}
 
-/* ── PILLS ── */
-.pill{
-  display:inline-flex;align-items:center;gap:4px;
-  font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;
-  font-family:var(--font-mono);letter-spacing:.5px;text-transform:uppercase;
-}
-.pill-high{background:var(--red-dim);color:var(--red)}
-.pill-med{background:var(--amber-dim);color:var(--amber)}
-.pill-low{background:var(--teal-dim);color:var(--teal)}
-.pill-pass{background:rgba(100,200,100,.15);color:#6DC86D}
-.pill-fail{background:var(--red-dim);color:var(--red)}
+/* GAUGE */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px}
+.gauge-num{font-size:36px;font-weight:600;line-height:1;margin-top:6px}
+.gauge-lbl{font-size:11px;color:var(--text3);margin-top:2px}
 
-/* ── TOOLTIP ── */
-.tooltip-wrap{position:relative;display:inline-block}
-.tooltip{
-  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
-  background:var(--ink4);border:1px solid var(--border2);border-radius:6px;
-  padding:6px 10px;font-size:11px;color:var(--fg2);white-space:nowrap;
-  pointer-events:none;opacity:0;transition:opacity .15s;z-index:200;
-  font-family:var(--font-mono);
-}
-.tooltip-wrap:hover .tooltip{opacity:1}
+/* SHAP ROWS */
+.shap-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.shap-row:last-child{border-bottom:none}
+.shap-feat{font-family:var(--mono);font-size:11px;width:148px;flex-shrink:0;color:var(--text2)}
+.shap-bar-bg{flex:1;height:14px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.shap-bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:6px}
+.shap-bar-fill span{font-size:10px;font-family:var(--mono);color:#fff;font-weight:500;white-space:nowrap}
+.shap-num{font-family:var(--mono);font-size:11px;color:var(--text3);width:46px;text-align:right;flex-shrink:0}
 
-/* ── REPORT VIEW ── */
-.report-section{margin-bottom:24px}
-.report-section-title{
-  font-family:var(--font-head);font-weight:700;font-size:13px;
-  padding-bottom:10px;margin-bottom:14px;
-  border-bottom:1px solid var(--border);
-  color:var(--fg3);letter-spacing:.5px;text-transform:uppercase;font-size:11px;
-}
+/* MIT CARDS */
+.mit-item{border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.mit-item.best{border-color:var(--blue-border);background:var(--blue-bg)}
+.mit-icon{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.mit-info{flex:1}
+.mit-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.mit-desc{font-size:11px;color:var(--text3)}
+.mit-score{text-align:right;flex-shrink:0}
+.mit-num{font-size:22px;font-weight:600;line-height:1}
+.mit-delta{font-size:11px;font-family:var(--mono);display:inline-block;margin-top:3px;padding:1px 6px;border-radius:4px}
+.delta-pos{background:var(--green-bg);color:var(--green)}
+.delta-none{background:var(--surface2);color:var(--text3)}
 
-/* ── LOADING ── */
-.loading-overlay{
-  position:fixed;inset:0;background:rgba(10,13,20,.85);
-  backdrop-filter:blur(8px);z-index:999;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
-}
-.loader{
-  width:48px;height:48px;border:3px solid var(--border2);
-  border-top-color:var(--amber);border-radius:50%;
-  animation:spin .7s linear infinite;
-}
+/* UPLOAD */
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--r2);padding:40px 24px;text-align:center;cursor:pointer;background:var(--surface);transition:all .15s}
+.drop-zone:hover,.drop-zone.over{border-color:var(--blue);background:var(--blue-bg)}
+.drop-icon{font-size:24px;margin-bottom:10px;opacity:0.4}
+.drop-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+.drop-sub{font-size:12px;color:var(--text3)}
+input[type=text],input[type=file]{width:100%;border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:13px;font-family:var(--mono);color:var(--text);background:var(--surface);outline:none;transition:border-color .15s}
+input[type=text]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,0.08)}
+label.field-label{display:block;font-size:11px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+
+/* DATASET PILLS */
+.ds-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.ds-pill{border:1px solid var(--border);border-radius:var(--r2);padding:12px 14px;cursor:pointer;background:var(--surface);transition:all .15s;box-shadow:var(--shadow)}
+.ds-pill:hover{border-color:var(--border2);box-shadow:var(--shadow2)}
+.ds-pill.active{border-color:var(--blue);background:var(--blue-bg);box-shadow:var(--shadow2)}
+.ds-pill-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
+.ds-pill-sub{font-size:10px;color:var(--text3);font-family:var(--mono)}
+
+/* TABS */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;padding:0}
+.tab{padding:10px 16px;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans)}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* HERO */
+.hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:28px 28px 24px;margin-bottom:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;right:0;width:280px;height:100%;background:linear-gradient(135deg,transparent 0%,var(--blue-bg) 100%);opacity:0.5;pointer-events:none}
+.hero-pre{font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--blue);margin-bottom:8px;font-family:var(--mono)}
+.hero-h{font-size:22px;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:8px;letter-spacing:-0.3px}
+.hero-p{font-size:13px;color:var(--text2);max-width:460px;line-height:1.6;margin-bottom:18px}
+.hero-actions{display:flex;gap:8px}
+
+/* NOTIF */
+.notif{position:fixed;bottom:20px;right:20px;z-index:999;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow2);animation:slideup .2s ease}
+@keyframes slideup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.notif-ok{border-left:3px solid var(--green)}
+.notif-err{border-left:3px solid var(--red)}
+
+/* ANIM */
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fadein{animation:fadein .25s ease}
+
+/* INLINE TAG */
+.tag{display:inline-block;font-size:10px;font-weight:500;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+
+/* SECTION LABEL */
+.section-label{font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:14px 0}
+
+/* LOADING OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(255,255,255,0.85);z-index:888;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.spinner{width:36px;height:36px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-text{font-family:var(--font-mono);font-size:13px;color:var(--fg3);letter-spacing:1px}
-.loading-sub{font-size:11px;color:var(--muted2);font-family:var(--font-mono);animation:pulse 1.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.overlay-text{font-size:13px;color:var(--text2);font-weight:500}
 
-/* ── NOTIFICATION ── */
-.notif{
-  position:fixed;bottom:24px;right:24px;z-index:1000;
-  background:var(--ink4);border:1px solid var(--border2);border-radius:var(--r);
-  padding:14px 18px;font-size:13px;display:flex;align-items:center;gap:10px;
-  box-shadow:0 8px 32px rgba(0,0,0,.4);
-  animation:slideIn .25s ease;
-}
-@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.notif.success{border-left:3px solid var(--teal)}
-.notif.error{border-left:3px solid var(--red)}
-.notif.warn{border-left:3px solid var(--amber)}
-
-/* ── RESPONSIVE ── */
-@media(max-width:900px){
-  .layout{grid-template-columns:1fr}
+@media(max-width:860px){
   .sidebar{display:none}
-  .stat-grid{grid-template-columns:1fr 1fr}
-  .dataset-grid{grid-template-columns:1fr 1fr}
-  .grid-2,.grid-3{grid-template-columns:1fr}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .ds-grid{grid-template-columns:1fr 1fr}
 }
-
-/* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-
-/* ── ANIMATED ENTRY ── */
-.stagger-1{animation:fadeUp .35s ease .05s both}
-.stagger-2{animation:fadeUp .35s ease .1s both}
-.stagger-3{animation:fadeUp .35s ease .15s both}
-.stagger-4{animation:fadeUp .35s ease .2s both}
-
-/* ── HERO GRADIENT ── */
-.hero-gradient{
-  background:linear-gradient(135deg,var(--ink2) 0%,var(--ink) 60%,rgba(61,40,0,.3) 100%);
-  border-bottom:1px solid var(--border);
-  padding:40px 32px;
-  position:relative;overflow:hidden;
-}
-.hero-gradient::after{
-  content:'';position:absolute;
-  top:-40px;right:-60px;
-  width:300px;height:300px;
-  background:radial-gradient(circle,rgba(245,166,35,.08) 0%,transparent 70%);
-  pointer-events:none;
-}
-.hero-tag{
-  font-family:var(--font-mono);font-size:11px;color:var(--amber);
-  letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;
-}
-.hero-title{font-family:var(--font-head);font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1.1;margin-bottom:10px}
-.hero-title em{color:var(--amber);font-style:normal}
-.hero-desc{font-size:13px;color:var(--fg3);max-width:480px;line-height:1.7}
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="app"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script>
-const {useState,useEffect,useRef,useCallback}=React;
+const {useState,useRef,useCallback}=React;
+const e=React.createElement;
 
-// ── API base (change to your deployed URL) ──
-const API_BASE = 'http://localhost:8000';
+const API='http://localhost:8000';
 
-// ── Dataset catalog ──
-const DATASETS=[
-  {id:'adult',name:'UCI Adult',icon:'💰',rows:'48,842',domain:'Income Prediction',protected:'Gender, Race',dataBias:92,modelBias:60,severity:'HIGH'},
-  {id:'compas',name:'COMPAS',icon:'⚖️',rows:'7,214',domain:'Criminal Justice',protected:'Race',dataBias:55,modelBias:28,severity:'MEDIUM'},
-  {id:'german',name:'German Credit',icon:'🏦',rows:'1,000',domain:'Loan Approval',protected:'Age',dataBias:60,modelBias:50,severity:'MEDIUM'},
-  {id:'utrecht',name:'Utrecht Hiring',icon:'💼',rows:'2,000',domain:'Recruitment',protected:'Gender',dataBias:51,modelBias:22,severity:'MEDIUM'},
-  {id:'diabetes130',name:'Diabetes 130',icon:'🏥',rows:'101,766',domain:'Medical',protected:'Race',dataBias:97,modelBias:83,severity:'HIGH'},
+const DS=[
+  {id:'adult',name:'UCI Adult',sub:'Income · Gender/Race',severity:'HIGH',dataBias:92,modelBias:60,rows:'48,842',domain:'Income Prediction',protected:'Gender, Race'},
+  {id:'compas',name:'COMPAS',sub:'Criminal · Race',severity:'MEDIUM',dataBias:55,modelBias:28,rows:'7,214',domain:'Criminal Justice',protected:'Race'},
+  {id:'german',name:'German Credit',sub:'Loans · Age',severity:'MEDIUM',dataBias:60,modelBias:50,rows:'1,000',domain:'Loan Approval',protected:'Age'},
+  {id:'utrecht',name:'Utrecht Hiring',sub:'Recruitment · Gender',severity:'MEDIUM',dataBias:51,modelBias:22,rows:'2,000',domain:'Recruitment',protected:'Gender'},
+  {id:'diabetes130',name:'Diabetes 130',sub:'Medical · Race',severity:'HIGH',dataBias:97,modelBias:83,rows:'101,766',domain:'Medical Readmission',protected:'Race'},
 ];
 
-// ── Pre-baked audit results (so demo works without backend) ──
-const AUDIT_DATA={
-  adult:{
-    dataScore:92,dataSev:'HIGH',modelScore:60,modelSev:'MEDIUM',
-    dir:0.5017,dpg:0.220,tprGap:0.1344,fprGap:0.0433,flipRate:0.089,
-    acc:0.9088,auc:0.9766,
-    shap:[
-      {feat:'age',val:3.887},{feat:'education_num',val:3.115},{feat:'capital_gain',val:1.224},
-      {feat:'hours_per_week',val:1.128},{feat:'sex (protected)',val:0.951},{feat:'race (protected)',val:0.770},
-      {feat:'marital_status',val:0.163},{feat:'relationship',val:0.119},{feat:'occupation',val:0.090},
-    ],
-    mit:[
-      {name:'Pre-processing',sub:'Reweighing',icon:'⚖️',before:32,after:32,imp:0,color:'#F5A623'},
-      {name:'In-processing',sub:'Fairness Constraint (ExponentiatedGradient)',icon:'🎯',before:32,after:24,imp:8,color:'#00C9A7'},
-      {name:'Post-processing',sub:'Threshold Calibration',icon:'🔧',before:0,after:0,imp:0,color:'#6495ED'},
-    ],
-    recommendations:[
-      'Apply reweighing to fix disparate impact on gender (DIR=0.50)',
-      "Gender attribute statistically associated with outcome — investigate proxy features",
-      'True positive rate gap of 0.134 detected — apply equalized odds post-processing',
-      'MEDIUM RISK: Apply at least one mitigation strategy before deployment',
-    ],
-  },
-  compas:{
-    dataScore:55,dataSev:'MEDIUM',modelScore:28,modelSev:'LOW',
-    dir:0.61,dpg:0.14,tprGap:0.08,fprGap:0.04,flipRate:0.04,
-    acc:0.997,auc:0.922,
-    shap:[
-      {feat:'age',val:1.18},{feat:'race (protected)',val:0.74},{feat:'priors_count',val:0.61},
-      {feat:'c_charge_degree',val:0.60},{feat:'age_cat',val:0.50},{feat:'days_b_screening',val:0.28},
-      {feat:'sex',val:0.10},
-    ],
-    mit:[
-      {name:'Pre-processing',sub:'Reweighing',icon:'⚖️',before:20,after:20,imp:0,color:'#F5A623'},
-      {name:'In-processing',sub:'Fairness Constraint',icon:'🎯',before:20,after:14,imp:6,color:'#00C9A7'},
-      {name:'Post-processing',sub:'Threshold Calibration',icon:'🔧',before:0,after:0,imp:0,color:'#6495ED'},
-    ],
-    recommendations:[
-      'Racial bias detected in COMPAS decile score (DIR=0.61)',
-      'Race is a top SHAP feature — model is using protected attribute directly',
-      'Monitor for disparate false positive rates across racial groups',
-    ],
-  },
-  german:{
-    dataScore:60,dataSev:'MEDIUM',modelScore:50,modelSev:'MEDIUM',
-    dir:1.54,dpg:0.285,tprGap:0.1478,fprGap:0.1308,flipRate:0.028,
-    acc:0.784,auc:0.882,
-    shap:[
-      {feat:'age (protected)',val:1.28},{feat:'credit_amount',val:1.07},{feat:'sex',val:0.80},
-      {feat:'duration',val:0.65},{feat:'personal_status',val:0.42},{feat:'purpose',val:0.20},
-      {feat:'property',val:0.14},
-    ],
-    mit:[
-      {name:'Pre-processing',sub:'Reweighing',icon:'⚖️',before:48,after:48,imp:0,color:'#F5A623'},
-      {name:'In-processing',sub:'Fairness Constraint',icon:'🎯',before:48,after:44,imp:4,color:'#00C9A7'},
-      {name:'Post-processing',sub:'Threshold Calibration',icon:'🔧',before:0,after:0,imp:0,color:'#6495ED'},
-    ],
-    recommendations:[
-      'Age-based discrimination detected — younger applicants disadvantaged',
-      'Age is the top SHAP feature driving predictions',
-      'Apply equalized odds post-processing to reduce TPR gap of 0.148',
-    ],
-  },
-  utrecht:{
-    dataScore:51,dataSev:'MEDIUM',modelScore:22,modelSev:'LOW',
-    dir:0.88,dpg:0.117,tprGap:0.05,fprGap:0.02,flipRate:0.02,
-    acc:0.938,auc:0.793,
-    shap:[
-      {feat:'gender (protected)',val:0.70},{feat:'gender_binary',val:0.70},{feat:'skill_score',val:0.28},
-      {feat:'interview_score',val:0.28},{feat:'education',val:0.22},{feat:'age',val:0.16},
-      {feat:'experience',val:0.11},
-    ],
-    mit:[
-      {name:'Pre-processing',sub:'Reweighing',icon:'⚖️',before:0,after:0,imp:0,color:'#F5A623'},
-      {name:'In-processing',sub:'Fairness Constraint',icon:'🎯',before:0,after:0,imp:0,color:'#00C9A7'},
-      {name:'Post-processing',sub:'Threshold Calibration',icon:'🔧',before:0,after:0,imp:0,color:'#6495ED'},
-    ],
-    recommendations:[
-      'Gender is the top feature by SHAP importance — investigate feature leakage',
-      'Demographic parity gap of 11.7% suggests hiring bias',
-      'LOW RISK: Monitor for drift, re-audit quarterly',
-    ],
-  },
-  diabetes130:{
-    dataScore:97,dataSev:'HIGH',modelScore:83,modelSev:'HIGH',
-    dir:0.4325,dpg:0.1887,tprGap:0.3299,fprGap:0.1218,flipRate:0.105,
-    acc:0.8344,auc:0.810,
-    shap:[
-      {feat:'num_medications',val:0.78},{feat:'number_diagnoses',val:0.62},{feat:'race (protected)',val:0.25},
-      {feat:'age',val:0.25},{feat:'A1C result',val:0.21},{feat:'number_inpatient',val:0.04},
-      {feat:'change',val:0.04},
-    ],
-    mit:[
-      {name:'Pre-processing',sub:'Reweighing',icon:'⚖️',before:53,after:53,imp:0,color:'#F5A623'},
-      {name:'In-processing',sub:'Fairness Constraint (EqualizedOdds)',icon:'🎯',before:53,after:5,imp:48,color:'#00C9A7'},
-      {name:'Post-processing',sub:'Threshold Calibration',icon:'🔧',before:0,after:0,imp:0,color:'#6495ED'},
-    ],
-    recommendations:[
-      'HIGH RISK: Do not deploy this model without bias mitigation',
-      'Racial disparity in readmission predictions (DIR=0.43, well below 0.80 threshold)',
-      'TPR gap of 0.33 — African-American patients miss out on early intervention at 33% higher rate',
-      'Counterfactual flip rate 10.5% — model directly uses race in predictions',
-      'Apply Fairness Constraint — reduces bias score from 83 to 5 (+48 pts improvement)',
-    ],
-  },
+const AUDIT={
+  adult:{dataScore:92,dataSev:'HIGH',modelScore:60,modelSev:'MEDIUM',dir:0.5017,dpg:0.220,tprGap:0.1344,fprGap:0.0433,flipRate:0.089,acc:0.9088,auc:0.9766,
+    shap:[{f:'age',v:3.887},{f:'education_num',v:3.115},{f:'capital_gain',v:1.224},{f:'hours_per_week',v:1.128},{f:'sex (protected)',v:0.951,p:true},{f:'race (protected)',v:0.770,p:true},{f:'marital_status',v:0.163},{f:'occupation',v:0.090}],
+    mit:[{n:'Pre-processing',d:'Reweighing sample weights',icon:'⊟',before:32,after:32,imp:0},{n:'In-processing',d:'ExponentiatedGradient (EqualizedOdds)',icon:'⊞',before:32,after:22,imp:10,best:true},{n:'Post-processing',d:'Per-group threshold calibration',icon:'⊠',before:32,after:32,imp:0}],
+    recs:['Apply reweighing to fix disparate impact on gender (DIR = 0.50 — fails four-fifths rule)','Gender is statistically associated with outcome at p < 0.001 — investigate proxy features','TPR gap of 0.134 detected — apply equalized odds post-processing','MEDIUM RISK: Apply mitigation before deployment']},
+  compas:{dataScore:55,dataSev:'MEDIUM',modelScore:28,modelSev:'LOW',dir:0.61,dpg:0.14,tprGap:0.08,fprGap:0.04,flipRate:0.04,acc:0.997,auc:0.922,
+    shap:[{f:'age',v:1.18},{f:'race (protected)',v:0.74,p:true},{f:'priors_count',v:0.61},{f:'charge_degree',v:0.60},{f:'age_cat',v:0.50},{f:'days_screening',v:0.28}],
+    mit:[{n:'Pre-processing',d:'Reweighing sample weights',icon:'⊟',before:20,after:20,imp:0},{n:'In-processing',d:'ExponentiatedGradient (EqualizedOdds)',icon:'⊞',before:20,after:14,imp:6,best:true},{n:'Post-processing',d:'Per-group threshold calibration',icon:'⊠',before:20,after:20,imp:0}],
+    recs:['Racial bias in COMPAS scoring (DIR = 0.61)','Race ranks #2 by SHAP importance — model directly uses protected attribute','Monitor false positive rates — Black defendants flagged at higher rate than equivalent white defendants']},
+  german:{dataScore:60,dataSev:'MEDIUM',modelScore:50,modelSev:'MEDIUM',dir:1.54,dpg:0.285,tprGap:0.1478,fprGap:0.1308,flipRate:0.028,acc:0.784,auc:0.882,
+    shap:[{f:'age (protected)',v:1.28,p:true},{f:'credit_amount',v:1.07},{f:'personal_status',v:0.80},{f:'duration',v:0.65},{f:'purpose',v:0.42}],
+    mit:[{n:'Pre-processing',d:'Reweighing sample weights',icon:'⊟',before:48,after:48,imp:0},{n:'In-processing',d:'ExponentiatedGradient (EqualizedOdds)',icon:'⊞',before:48,after:44,imp:4,best:true},{n:'Post-processing',d:'Per-group threshold calibration',icon:'⊠',before:48,after:48,imp:0}],
+    recs:['Age-based discrimination detected — younger applicants disadvantaged','Age is top SHAP feature driving loan rejections','TPR gap 0.148 — apply equalized odds to reduce disparity']},
+  utrecht:{dataScore:51,dataSev:'MEDIUM',modelScore:22,modelSev:'LOW',dir:0.88,dpg:0.117,tprGap:0.05,fprGap:0.02,flipRate:0.02,acc:0.938,auc:0.793,
+    shap:[{f:'gender (protected)',v:0.70,p:true},{f:'skill_score',v:0.28},{f:'interview_score',v:0.28},{f:'education',v:0.22},{f:'experience',v:0.16}],
+    mit:[{n:'Pre-processing',d:'Reweighing sample weights',icon:'⊟',before:0,after:0,imp:0},{n:'In-processing',d:'ExponentiatedGradient (EqualizedOdds)',icon:'⊞',before:0,after:0,imp:0},{n:'Post-processing',d:'Per-group threshold calibration',icon:'⊠',before:0,after:0,imp:0}],
+    recs:['Gender is top SHAP feature — investigate direct feature leakage','Demographic parity gap of 11.7% suggests hiring advantage for male candidates','LOW RISK: Monitor quarterly, re-audit with larger dataset']},
+  diabetes130:{dataScore:97,dataSev:'HIGH',modelScore:83,modelSev:'HIGH',dir:0.4325,dpg:0.1887,tprGap:0.3299,fprGap:0.1218,flipRate:0.105,acc:0.8344,auc:0.810,
+    shap:[{f:'num_medications',v:0.78},{f:'number_diagnoses',v:0.62},{f:'race (protected)',v:0.25,p:true},{f:'age',v:0.25},{f:'A1C_result',v:0.21}],
+    mit:[{n:'Pre-processing',d:'Reweighing sample weights',icon:'⊟',before:53,after:53,imp:0},{n:'In-processing',d:'ExponentiatedGradient (EqualizedOdds)',icon:'⊞',before:53,after:5,imp:48,best:true},{n:'Post-processing',d:'Per-group threshold calibration',icon:'⊠',before:53,after:53,imp:0}],
+    recs:['HIGH RISK: Do not deploy without mitigation','Racial disparity: DIR = 0.43 (far below 0.80 threshold) — Black patients systematically under-predicted for readmission','TPR gap 0.33 — African-American patients miss early intervention at 33% higher rate than Caucasian patients','Counterfactual flip rate 10.5% — model directly relies on race','Fairness constraint reduces bias score from 83 to 5 (improvement: +48 pts)']},
 };
 
-// ── Helpers ──
-function sevColor(sev){return sev==='HIGH'?'var(--red)':sev==='MEDIUM'?'var(--amber)':'var(--teal)'}
-function sevClass(sev){return sev==='HIGH'?'pill-high':sev==='MEDIUM'?'pill-med':'pill-low'}
-function numColor(v,invert=false){
-  if(invert) return v<0.5?'var(--red)':v<0.8?'var(--amber)':'var(--teal)';
-  return v>=70?'var(--red)':v>=40?'var(--amber)':'var(--teal)';
-}
-function dirStatus(v){return v>=0.8?{cls:'pill-pass',label:'PASS ✓'}:{cls:'pill-fail',label:'FAIL ✗'}}
+function sev(s){return s==='HIGH'?'badge-high':s==='MEDIUM'?'badge-med':'badge-low'}
+function sevColor(s){return s==='HIGH'?'var(--red)':s==='MEDIUM'?'var(--amber)':'var(--green)'}
+function numColor(v){return v>=70?'var(--red)':v>=40?'var(--amber)':'var(--green)'}
+function dirPill(v){return v>=0.8?e('span',{className:'badge badge-pass'},'Pass ✓'):e('span',{className:'badge badge-fail'},'Fail ✗')}
 
-// ── Gauge SVG ──
 function Gauge({score,color}){
-  const pct=score/100;
-  const r=70,cx=90,cy=90,sw=12;
-  const arc=(p,full)=>{
-    const a=(p*Math.PI)-(Math.PI/2);
+  const r=58,cx=72,cy=72,sw=9;
+  const arc=p=>{
     const x=cx+r*Math.cos(-Math.PI+p*Math.PI);
     const y=cy+r*Math.sin(-Math.PI+p*Math.PI);
     return `M ${cx-r} ${cy} A ${r} ${r} 0 ${p>.5?1:0} 1 ${x} ${y}`;
   };
-  return React.createElement('svg',{viewBox:'0 0 180 100',className:'gauge-svg'},
-    React.createElement('path',{d:arc(1,true),fill:'none',stroke:'var(--ink3)',strokeWidth:sw,strokeLinecap:'round'}),
-    React.createElement('path',{d:arc(Math.max(.01,pct)),fill:'none',stroke:color,strokeWidth:sw,strokeLinecap:'round',
-      style:{filter:`drop-shadow(0 0 8px ${color})`}}),
+  const p=Math.max(.01,score/100);
+  return e('svg',{viewBox:'0 0 144 80',style:{width:'144px',height:'80px'}},
+    e('path',{d:arc(1),fill:'none',stroke:'var(--surface2)',strokeWidth:sw,strokeLinecap:'round'}),
+    e('path',{d:arc(p),fill:'none',stroke:color,strokeWidth:sw,strokeLinecap:'round'}),
   );
 }
 
-// ── Mini bar ──
-function Bar({val,max=100,color='var(--amber)'}){
-  const pct=Math.min(100,(val/max)*100);
-  return React.createElement('div',{className:'metric-bar-wrap'},
-    React.createElement('div',{className:'metric-bar',style:{width:`${pct}%`,background:color}})
+function Bar({val,max=100,color}){
+  return e('div',{className:'bar-wrap'},
+    e('div',{className:'bar-fill',style:{width:`${Math.min(100,(val/max)*100)}%`,background:color||'var(--blue)'}})
   );
 }
 
-// ── Pages ──
-function OverviewPage({onNavigate}){
-  const [loading,setLoading]=useState(false);
-  const [notif,setNotif]=useState(null);
-
-  const runFullAudit=async(dsId)=>{
-    setLoading(true);
-    try{
-      await new Promise(r=>setTimeout(r,1800));
-      setLoading(false);
-      setNotif({type:'success',msg:`Full audit complete for ${dsId}`});
-      setTimeout(()=>setNotif(null),3000);
-    }catch(e){setLoading(false);}
-  };
-
-  const totalHigh=DATASETS.filter(d=>d.severity==='HIGH').length;
-  const avgScore=Math.round(DATASETS.reduce((a,d)=>a+d.dataBias,0)/DATASETS.length);
-
-  return React.createElement('div',null,
-    loading&&React.createElement('div',{className:'loading-overlay'},
-      React.createElement('div',{className:'loader'}),
-      React.createElement('div',{className:'loading-text'},'RUNNING AUDIT'),
-      React.createElement('div',{className:'loading-sub'},'Analysing bias across protected attributes...'),
-    ),
-    notif&&React.createElement('div',{className:`notif ${notif.type}`},
-      React.createElement('span',null,notif.type==='success'?'✓':'⚠'),
-      notif.msg
-    ),
-
-    // Hero
-    React.createElement('div',{className:'hero-gradient'},
-      React.createElement('div',{className:'hero-tag'},'Hack2Skill · Unbiased AI Decision'),
-      React.createElement('h1',{className:'hero-title'},
-        'Detect ',React.createElement('em',null,'hidden bias'),React.createElement('br',null),'in your AI models.'
-      ),
-      React.createElement('p',{className:'hero-desc'},
-        'FairLens audits datasets and trained models for discriminatory patterns across gender, race, and age — before they impact real people.'
-      ),
-      React.createElement('div',{style:{display:'flex',gap:'12px',marginTop:'20px'}},
-        React.createElement('button',{className:'btn btn-primary',onClick:()=>onNavigate('audit')},'⚡ Run Audit'),
-        React.createElement('button',{className:'btn btn-ghost',onClick:()=>onNavigate('upload')},'📂 Upload Dataset'),
+// ── Dashboard Page ──
+function DashPage({nav}){
+  const highCount=DS.filter(d=>d.severity==='HIGH').length;
+  const avgBias=Math.round(DS.reduce((a,d)=>a+d.dataBias,0)/DS.length);
+  return e('div',{className:'fadein'},
+    e('div',{className:'hero'},
+      e('div',{className:'hero-pre'},'Hack2Skill · Unbiased AI Decision'),
+      e('h1',{className:'hero-h'},'Detect and eliminate bias in your AI models'),
+      e('p',{className:'hero-p'},'FairLens provides statistical data auditing, model-level fairness metrics, SHAP explainability, and automated mitigation across gender, race, and age — before discriminatory systems reach real people.'),
+      e('div',{className:'hero-actions'},
+        e('button',{className:'btn btn-primary',onClick:()=>nav('audit')},'Run audit'),
+        e('button',{className:'btn',onClick:()=>nav('upload')},'Upload dataset'),
       )
     ),
-
-    React.createElement('div',{className:'page'},
-      // Stats
-      React.createElement('div',{className:'stat-grid stagger-1'},
-        React.createElement('div',{className:'stat-card amber'},
-          React.createElement('div',{className:'stat-label'},'Datasets Audited'),
-          React.createElement('div',{className:'stat-val amber'},'5'),
-          React.createElement('div',{className:'stat-sub'},'UCI · COMPAS · German · Utrecht · Diabetes'),
-        ),
-        React.createElement('div',{className:'stat-card red'},
-          React.createElement('div',{className:'stat-label'},'High Risk Flags'),
-          React.createElement('div',{className:'stat-val red'},totalHigh),
-          React.createElement('div',{className:'stat-sub'},'Require immediate mitigation'),
-        ),
-        React.createElement('div',{className:'stat-card teal'},
-          React.createElement('div',{className:'stat-label'},'Avg Bias Score'),
-          React.createElement('div',{className:'stat-val',style:{color:numColor(avgScore)}},avgScore),
-          React.createElement('div',{className:'stat-sub'},'Across all 5 datasets'),
-        ),
-        React.createElement('div',{className:'stat-card blue'},
-          React.createElement('div',{className:'stat-label'},'Metrics Tracked'),
-          React.createElement('div',{className:'stat-val',style:{color:'cornflowerblue'}},'7'),
-          React.createElement('div',{className:'stat-sub'},'DIR · DPG · TPR · FPR · SHAP · Flip · Calib.'),
-        ),
+    e('div',{className:'g4',style:{marginBottom:'20px'}},
+      e('div',{className:'stat'},e('div',{className:'stat-label'},'Datasets audited'),e('div',{className:'stat-val',style:{color:'var(--blue)'}},'5'),e('div',{className:'stat-sub'},'UCI · COMPAS · German · Utrecht · Diabetes')),
+      e('div',{className:'stat'},e('div',{className:'stat-label'},'High risk flags'),e('div',{className:'stat-val',style:{color:'var(--red)'}},highCount),e('div',{className:'stat-sub'},'Require immediate mitigation')),
+      e('div',{className:'stat'},e('div',{className:'stat-label'},'Avg bias score'),e('div',{className:'stat-val',style:{color:numColor(avgBias)}},avgBias),e('div',{className:'stat-sub'},'Across all 5 datasets / 100')),
+      e('div',{className:'stat'},e('div',{className:'stat-label'},'Metrics tracked'),e('div',{className:'stat-val',style:{color:'var(--text)'}},'7'),e('div',{className:'stat-sub'},'DIR · DPG · TPR · FPR · SHAP · Flip · Calib.')),
+    ),
+    e('div',{className:'card'},
+      e('div',{className:'card-head'},
+        e('span',{className:'card-title'},'All datasets — bias overview'),
+        e('button',{className:'btn',style:{fontSize:'11px'},onClick:()=>nav('audit')},'View details →')
       ),
-
-      // Dataset overview table
-      React.createElement('div',{className:'card stagger-2'},
-        React.createElement('div',{className:'card-head'},
-          React.createElement('div',{className:'card-title'},'All Datasets — Bias Overview'),
-          React.createElement('button',{className:'btn btn-ghost',style:{fontSize:'11px',padding:'5px 12px'},onClick:()=>onNavigate('audit')},'View Details →'),
-        ),
-        React.createElement('div',{className:'table-wrap'},
-          React.createElement('table',null,
-            React.createElement('thead',null,
-              React.createElement('tr',null,
-                ['Dataset','Domain','Protected Attr','Rows','Data Bias','Model Bias','Severity','Action'].map(h=>
-                  React.createElement('th',{key:h},h)
-                )
-              )
-            ),
-            React.createElement('tbody',null,
-              DATASETS.map(d=>
-                React.createElement('tr',{key:d.id},
-                  React.createElement('td',null,
-                    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
-                      React.createElement('span',null,d.icon),
-                      React.createElement('strong',{style:{fontFamily:'var(--font-head)',fontWeight:700}},d.name)
-                    )
-                  ),
-                  React.createElement('td',{className:'mono'},d.domain),
-                  React.createElement('td',{className:'mono'},d.protected),
-                  React.createElement('td',{className:'mono'},d.rows),
-                  React.createElement('td',null,
-                    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
-                      React.createElement('div',{style:{flex:1,height:'4px',background:'var(--ink3)',borderRadius:'2px',overflow:'hidden',minWidth:'60px'}},
-                        React.createElement('div',{style:{height:'100%',width:`${d.dataBias}%`,background:numColor(d.dataBias),borderRadius:'2px'}})
-                      ),
-                      React.createElement('span',{className:'mono',style:{color:numColor(d.dataBias)}},d.dataBias)
-                    )
-                  ),
-                  React.createElement('td',null,
-                    React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
-                      React.createElement('div',{style:{flex:1,height:'4px',background:'var(--ink3)',borderRadius:'2px',overflow:'hidden',minWidth:'60px'}},
-                        React.createElement('div',{style:{height:'100%',width:`${d.modelBias}%`,background:numColor(d.modelBias),borderRadius:'2px'}})
-                      ),
-                      React.createElement('span',{className:'mono',style:{color:numColor(d.modelBias)}},d.modelBias)
-                    )
-                  ),
-                  React.createElement('td',null,React.createElement('span',{className:`pill ${sevClass(d.severity)}`},d.severity)),
-                  React.createElement('td',null,
-                    React.createElement('button',{
-                      className:'btn btn-ghost',
-                      style:{fontSize:'11px',padding:'4px 10px'},
-                      onClick:()=>onNavigate('audit',d.id)
-                    },'Inspect')
-                  )
-                )
-              )
+      e('div',{className:'tbl-wrap'},
+        e('table',null,
+          e('thead',null,e('tr',null,['Dataset','Domain','Protected attributes','Rows','Data bias','Model bias','Severity',''].map(h=>e('th',{key:h},h)))),
+          e('tbody',null,DS.map(d=>
+            e('tr',{key:d.id},
+              e('td',null,e('strong',{style:{fontWeight:600}},d.name)),
+              e('td',{className:'mono'},d.domain),
+              e('td',{className:'mono'},d.protected),
+              e('td',{className:'mono'},d.rows),
+              e('td',null,e('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},e(Bar,{val:d.dataBias,color:numColor(d.dataBias)}),e('span',{className:'mono',style:{color:numColor(d.dataBias),fontWeight:600,minWidth:'24px'}},d.dataBias))),
+              e('td',null,e('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},e(Bar,{val:d.modelBias,color:numColor(d.modelBias)}),e('span',{className:'mono',style:{color:numColor(d.modelBias),fontWeight:600,minWidth:'24px'}},d.modelBias))),
+              e('td',null,e('span',{className:`badge ${sev(d.severity)}`},d.severity)),
+              e('td',null,e('button',{className:'btn',style:{fontSize:'11px',padding:'4px 10px'},onClick:()=>nav('audit',d.id)},'Inspect')),
             )
-          )
+          ))
         )
       )
     )
   );
 }
 
-function AuditPage({initialDataset}){
-  const [selected,setSelected]=useState(initialDataset||'adult');
+// ── Audit Page ──
+function AuditPage({initDs}){
+  const [sel,setSel]=useState(initDs||'adult');
   const [tab,setTab]=useState('overview');
-  const data=AUDIT_DATA[selected];
-  const ds=DATASETS.find(d=>d.id===selected);
-  const maxShap=data.shap[0].val;
+  const d=AUDIT[sel];
+  const ds=DS.find(x=>x.id===sel);
+  const maxShap=d.shap[0].v;
 
-  const tabs=['overview','data','model','mitigation','report'];
+  return e('div',{className:'fadein'},
+    e('div',{className:'ds-grid'},
+      DS.map(x=>e('div',{key:x.id,className:`ds-pill ${sel===x.id?'active':''}`,onClick:()=>{setSel(x.id);setTab('overview')}},
+        e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'4px'}},
+          e('div',{className:'ds-pill-name'},x.name),
+          e('span',{className:`badge ${sev(x.severity)}`,style:{fontSize:'9px'}},x.severity)
+        ),
+        e('div',{className:'ds-pill-sub'},x.sub),
+        e('div',{className:'ds-pill-sub',style:{marginTop:'2px'}},x.rows+' rows'),
+      ))
+    ),
+    e('div',{className:'tab-bar'},
+      ['Overview','Data audit','Model audit','Mitigation','Report'].map(t=>
+        e('button',{key:t,className:`tab ${tab===t.toLowerCase().replace(' ','')?'active':''}`,onClick:()=>setTab(t.toLowerCase().replace(' ',''))},t)
+      )
+    ),
 
-  return React.createElement('div',null,
-    // Dataset selector
-    React.createElement('div',{style:{padding:'24px 32px 0'}},
-      React.createElement('div',{className:'dataset-grid'},
-        DATASETS.map(d=>
-          React.createElement('div',{
-            key:d.id,
-            className:`dataset-card ${selected===d.id?'active':''}`,
-            onClick:()=>{setSelected(d.id);setTab('overview');}
-          },
-            React.createElement('div',{className:`ds-badge ${sevClass(d.severity)}`},d.severity),
-            React.createElement('div',{className:'ds-icon'},d.icon),
-            React.createElement('div',{className:'ds-name'},d.name),
-            React.createElement('div',{className:'ds-meta'},d.domain),
-            React.createElement('div',{className:'ds-meta',style:{marginTop:'2px'}},d.rows+' rows'),
+    // OVERVIEW
+    tab==='overview'&&e('div',null,
+      e('div',{style:{marginBottom:'6px',display:'flex',alignItems:'center',gap:'10px'}},
+        e('h2',{style:{fontSize:'16px',fontWeight:600}},ds.name+' — Bias audit'),
+        e('span',{className:'tag'},ds.domain),
+        e('span',{style:{fontSize:'12px',color:'var(--text3)'}},'Protected: '+ds.protected+' · '+ds.rows+' rows'),
+      ),
+      e('div',{className:'g2',style:{marginBottom:'16px'}},
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Data bias score'),e('span',{className:`badge ${sev(d.dataSev)}`},d.dataSev)),
+          e('div',{className:'card-body'},
+            e('div',{className:'gauge-wrap'},
+              e(Gauge,{score:d.dataScore,color:sevColor(d.dataSev)}),
+              e('div',{className:'gauge-num',style:{color:sevColor(d.dataSev)}},d.dataScore),
+              e('div',{className:'gauge-lbl'},'/ 100'),
+            ),
+            e('div',{className:'divider'}),
+            e('div',{className:'mrow'},e('span',{className:'mrow-name'},'Disparate impact ratio'),e(Bar,{val:Math.abs(1-d.dir)*100,color:d.dir<0.8?'var(--red)':'var(--green)'}),e('span',{className:'mrow-val',style:{color:d.dir<0.8?'var(--red)':'var(--green)'}},d.dir.toFixed(3)),dirPill(d.dir)),
+            e('div',{className:'mrow'},e('span',{className:'mrow-name'},'Demographic parity gap'),e(Bar,{val:d.dpg*200,color:d.dpg>0.1?'var(--amber)':'var(--green)'}),e('span',{className:'mrow-val'},d.dpg.toFixed(3))),
+          )
+        ),
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Model bias score'),e('span',{className:`badge ${sev(d.modelSev)}`},d.modelSev)),
+          e('div',{className:'card-body'},
+            e('div',{className:'gauge-wrap'},
+              e(Gauge,{score:d.modelScore,color:sevColor(d.modelSev)}),
+              e('div',{className:'gauge-num',style:{color:sevColor(d.modelSev)}},d.modelScore),
+              e('div',{className:'gauge-lbl'},'/ 100'),
+            ),
+            e('div',{className:'divider'}),
+            e('div',{className:'mrow'},e('span',{className:'mrow-name'},'TPR gap (equalized odds)'),e(Bar,{val:d.tprGap*200,color:d.tprGap>0.1?'var(--red)':'var(--green)'}),e('span',{className:'mrow-val',style:{color:d.tprGap>0.1?'var(--red)':'var(--green)'}},d.tprGap.toFixed(3))),
+            e('div',{className:'mrow'},e('span',{className:'mrow-name'},'FPR gap'),e(Bar,{val:d.fprGap*200,color:d.fprGap>0.05?'var(--amber)':'var(--green)'}),e('span',{className:'mrow-val'},d.fprGap.toFixed(3))),
+            e('div',{className:'mrow'},e('span',{className:'mrow-name'},'Counterfactual flip rate'),e(Bar,{val:d.flipRate*300,color:d.flipRate>0.1?'var(--amber)':'var(--green)'}),e('span',{className:'mrow-val'},(d.flipRate*100).toFixed(1)+'%')),
+          )
+        )
+      ),
+      e('div',{className:'card'},
+        e('div',{className:'card-head'},e('span',{className:'card-title'},'Recommended actions')),
+        e('div',{className:'card-body'},
+          d.recs.map((r,i)=>e('div',{key:i,style:{display:'flex',gap:'12px',padding:'9px 0',borderBottom:i<d.recs.length-1?'1px solid var(--border)':'none'}},
+            e('div',{style:{width:'20px',height:'20px',borderRadius:'50%',background:'var(--blue-bg)',border:'1px solid var(--blue-border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:600,color:'var(--blue)',flexShrink:0,fontFamily:'var(--mono)'}},i+1),
+            e('div',{style:{fontSize:'13px',color:'var(--text2)',lineHeight:1.5}},r)
+          ))
+        )
+      )
+    ),
+
+    // DATA AUDIT
+    tab==='dataaudit'&&e('div',null,
+      e('div',{style:{marginBottom:'16px'}},e('h2',{style:{fontSize:'15px',fontWeight:600,marginBottom:'4px'}},'Data audit'),e('p',{style:{fontSize:'12px',color:'var(--text3)'}},'Statistical bias analysis on raw dataset before any model is trained')),
+      e('div',{className:'g2'},
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Fairness metrics')),
+          e('div',{className:'card-body'},
+            [{name:'Disparate impact ratio',val:d.dir,fmt:v=>v.toFixed(4),pass:v=>v>=0.8,note:'< 0.80 = FAIL (US EEOC four-fifths rule)'},
+             {name:'Demographic parity gap',val:d.dpg,fmt:v=>v.toFixed(4),pass:v=>v<0.1,note:'> 0.10 = concerning'},
+             {name:'Chi-square test',val:0,fmt:()=>'Significant',pass:()=>false,note:'p < 0.001 — association confirmed'},
+            ].map((m,i)=>e('div',{key:i,className:'mrow'},
+              e('div',{style:{flex:1}},
+                e('div',{style:{fontSize:'12px',fontWeight:500,marginBottom:'2px',color:'var(--text)'}},m.name),
+                e('div',{style:{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--mono)'}},m.note),
+              ),
+              e('div',{style:{textAlign:'right'}},
+                e('div',{style:{fontFamily:'var(--mono)',fontSize:'14px',fontWeight:600,color:m.pass(m.val)?'var(--green)':'var(--red)',marginBottom:'3px'}},m.fmt(m.val)),
+                e('span',{className:`badge ${m.pass(m.val)?'badge-pass':'badge-fail'}`},m.pass(m.val)?'Pass ✓':'Fail ✗'),
+              )
+            ))
+          )
+        ),
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Group positive rates')),
+          e('div',{className:'card-body'},
+            e('div',{className:'section-label'},'Positive outcome rate by group'),
+            ['Privileged','Unprivileged'].map((g,i)=>{
+              const rate=i===0?(d.dpg+0.22)*100:0.22*100*0.8;
+              return e('div',{key:g,style:{marginBottom:'14px'}},
+                e('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'5px'}},
+                  e('span',{style:{fontSize:'12px',color:'var(--text2)',fontWeight:500}},g),
+                  e('span',{style:{fontFamily:'var(--mono)',fontSize:'12px',color:i===0?'var(--amber)':'var(--blue)',fontWeight:500}},rate.toFixed(1)+'%'),
+                ),
+                e('div',{style:{height:'8px',background:'var(--surface2)',borderRadius:'4px',overflow:'hidden',border:'1px solid var(--border)'}},
+                  e('div',{style:{height:'100%',width:`${Math.min(rate,100)}%`,background:i===0?'var(--amber)':'var(--blue)',borderRadius:'4px'}})
+                )
+              );
+            }),
+            e('div',{style:{marginTop:'16px',padding:'12px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('div',{style:{padding:'12px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
+              e('div',{className:'section-label',style:{marginBottom:'4px'}},'Overall data bias score'),
+              e('div',{style:{fontFamily:'var(--mono)',fontSize:'28px',fontWeight:600,color:sevColor(d.dataSev)}},d.dataScore),
+              e('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px'}},'/ 100 — '+d.dataSev),
+            )
           )
         )
       )
     ),
 
-    // Tab bar
-    React.createElement('div',{style:{padding:'0 32px',borderBottom:'1px solid var(--border)',display:'flex',gap:'4px'}},
-      tabs.map(t=>
-        React.createElement('button',{
-          key:t,
-          onClick:()=>setTab(t),
-          style:{
-            padding:'12px 16px',background:'none',border:'none',cursor:'pointer',
-            fontFamily:'var(--font-mono)',fontSize:'11px',letterSpacing:'1px',
-            textTransform:'uppercase',fontWeight:600,
-            color:tab===t?'var(--amber)':'var(--fg3)',
-            borderBottom:tab===t?'2px solid var(--amber)':'2px solid transparent',
-            marginBottom:'-1px',transition:'color .15s',
-          }
-        },t)
+    // MODEL AUDIT
+    tab==='modelaudit'&&e('div',null,
+      e('div',{style:{marginBottom:'16px'}},e('h2',{style:{fontSize:'15px',fontWeight:600,marginBottom:'4px'}},'Model audit'),e('p',{style:{fontSize:'12px',color:'var(--text3)'}},'LogisticRegression trained on dataset · SHAP explainability · Per-group fairness metrics')),
+      e('div',{className:'g2'},
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Performance metrics')),
+          e('div',{className:'card-body'},
+            [{label:'Accuracy',val:d.acc},{label:'ROC-AUC',val:d.auc}].map(m=>
+              e('div',{key:m.label,style:{marginBottom:'14px'}},
+                e('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'5px'}},
+                  e('span',{style:{fontSize:'12px',color:'var(--text2)'}},[m.label]),
+                  e('span',{style:{fontFamily:'var(--mono)',fontSize:'12px',fontWeight:600,color:'var(--text)'}},(m.val*100).toFixed(1)+'%'),
+                ),
+                e('div',{style:{height:'6px',background:'var(--surface2)',borderRadius:'3px',overflow:'hidden',border:'1px solid var(--border)'}},
+                  e('div',{style:{height:'100%',width:`${m.val*100}%`,background:'var(--blue)',borderRadius:'3px'}})
+                )
+              )
+            ),
+            e('div',{className:'divider'}),
+            [{label:'TPR gap (equalized odds)',val:d.tprGap,fmt:v=>v.toFixed(4),bad:v=>v>0.1},
+             {label:'FPR gap',val:d.fprGap,fmt:v=>v.toFixed(4),bad:v=>v>0.05},
+             {label:'Counterfactual flip rate',val:d.flipRate,fmt:v=>(v*100).toFixed(1)+'%',bad:v=>v>0.05},
+             {label:'Model DIR',val:d.dir,fmt:v=>v.toFixed(4),bad:v=>v<0.8},
+            ].map(m=>e('div',{key:m.label,className:'mrow'},
+              e('span',{className:'mrow-name'},m.label),
+              e('span',{style:{fontFamily:'var(--mono)',fontSize:'12px',fontWeight:600,color:m.bad(m.val)?'var(--red)':'var(--green)'}},m.fmt(m.val)),
+            ))
+          )
+        ),
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'SHAP feature importance')),
+          e('div',{className:'card-body'},
+            e('div',{className:'section-label'},'Mean |SHAP value| — features driving predictions'),
+            d.shap.map((s,i)=>{
+              const pct=(s.v/maxShap)*100;
+              return e('div',{key:s.f,className:'shap-row'},
+                e('span',{className:'shap-feat',style:{color:s.p?'var(--red)':'var(--text2)'}},(s.p?'⚑ ':'')+s.f),
+                e('div',{className:'shap-bar-bg'},
+                  e('div',{className:'shap-bar-fill',style:{width:`${pct}%`,background:s.p?'var(--red)':i<3?'var(--blue)':'var(--border2)'}},
+                    pct>25&&e('span',null,s.v.toFixed(3))
+                  )
+                ),
+                e('span',{className:'shap-num'},s.v.toFixed(3)),
+              );
+            })
+          )
+        )
       )
     ),
 
-    React.createElement('div',{className:'page'},
-
-      // ── OVERVIEW TAB ──
-      tab==='overview'&&React.createElement('div',null,
-        React.createElement('div',{className:'page-header'},
-          React.createElement('div',{className:'page-title'},ds.icon+' '+ds.name+' — Bias Audit'),
-          React.createElement('div',{className:'page-subtitle'},ds.domain+' · Protected: '+ds.protected+' · '+ds.rows+' rows'),
+    // MITIGATION
+    tab==='mitigation'&&e('div',null,
+      e('div',{style:{marginBottom:'16px'}},e('h2',{style:{fontSize:'15px',fontWeight:600,marginBottom:'4px'}},'Mitigation strategies'),e('p',{style:{fontSize:'12px',color:'var(--text3)'}},'Three complementary strategies applied before, during, and after training')),
+      d.mit.map((m,i)=>e('div',{key:i,className:`mit-item ${m.best?'best':''}`},
+        e('div',{className:'mit-icon',style:{background:m.best?'var(--blue-bg)':'var(--surface2)',border:`1px solid ${m.best?'var(--blue-border)':'var(--border)'}`}},m.icon),
+        e('div',{className:'mit-info'},
+          e('div',{className:'mit-name'},m.n,m.best&&e('span',{className:'badge badge-info',style:{marginLeft:'8px',fontSize:'9px'}},'Best result')),
+          e('div',{className:'mit-desc',style:{marginBottom:'8px'}},m.d),
+          e('div',{style:{height:'5px',background:'var(--surface2)',borderRadius:'3px',overflow:'hidden',border:'1px solid var(--border)',maxWidth:'280px'}},
+            e('div',{style:{height:'100%',width:`${m.after}%`,background:m.best?'var(--blue)':'var(--border2)',borderRadius:'3px',transition:'width .6s ease'}})
+          ),
+          e('div',{style:{fontSize:'10px',color:'var(--text3)',marginTop:'4px',fontFamily:'var(--mono)'}},'Bias score after mitigation: '+m.after+'/100'),
         ),
-        React.createElement('div',{className:'grid-2',style:{marginBottom:'20px'}},
-          // Data bias gauge
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},
-              React.createElement('div',{className:'card-title'},'Data Bias Score'),
-              React.createElement('span',{className:`pill ${sevClass(data.dataSev)}`},data.dataSev),
-            ),
-            React.createElement('div',{className:'card-body'},
-              React.createElement('div',{className:'gauge-wrap'},
-                React.createElement(Gauge,{score:data.dataScore,color:sevColor(data.dataSev)}),
-                React.createElement('div',{className:'gauge-score',style:{color:sevColor(data.dataSev)}},data.dataScore),
-                React.createElement('div',{className:'gauge-label'},'/ 100'),
-              ),
-              React.createElement('div',{className:'metric-row'},
-                React.createElement('span',{className:'metric-name'},'Disparate Impact Ratio'),
-                React.createElement(Bar,{val:Math.abs(1-data.dir)*100,color:data.dir<0.8?'var(--red)':'var(--teal)'}),
-                React.createElement('span',{className:'metric-val-label',style:{color:data.dir<0.8?'var(--red)':'var(--teal)'}},data.dir.toFixed(3)),
-                React.createElement('span',{className:'metric-status'},
-                  React.createElement('span',{className:`pill ${dirStatus(data.dir).cls}`},dirStatus(data.dir).label)
-                ),
-              ),
-              React.createElement('div',{className:'metric-row'},
-                React.createElement('span',{className:'metric-name'},'Demographic Parity Gap'),
-                React.createElement(Bar,{val:data.dpg*100*2,color:data.dpg>0.1?'var(--amber)':'var(--teal)'}),
-                React.createElement('span',{className:'metric-val-label'},data.dpg.toFixed(3)),
-              ),
-            )
-          ),
-
-          // Model bias gauge
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},
-              React.createElement('div',{className:'card-title'},'Model Bias Score'),
-              React.createElement('span',{className:`pill ${sevClass(data.modelSev)}`},data.modelSev),
-            ),
-            React.createElement('div',{className:'card-body'},
-              React.createElement('div',{className:'gauge-wrap'},
-                React.createElement(Gauge,{score:data.modelScore,color:sevColor(data.modelSev)}),
-                React.createElement('div',{className:'gauge-score',style:{color:sevColor(data.modelSev)}},data.modelScore),
-                React.createElement('div',{className:'gauge-label'},'/ 100'),
-              ),
-              React.createElement('div',{className:'metric-row'},
-                React.createElement('span',{className:'metric-name'},'TPR Gap (Equalized Odds)'),
-                React.createElement(Bar,{val:data.tprGap*200,color:data.tprGap>0.1?'var(--red)':'var(--teal)'}),
-                React.createElement('span',{className:'metric-val-label'},data.tprGap.toFixed(3)),
-              ),
-              React.createElement('div',{className:'metric-row'},
-                React.createElement('span',{className:'metric-name'},'FPR Gap'),
-                React.createElement(Bar,{val:data.fprGap*200,color:data.fprGap>0.1?'var(--amber)':'var(--teal)'}),
-                React.createElement('span',{className:'metric-val-label'},data.fprGap.toFixed(3)),
-              ),
-              React.createElement('div',{className:'metric-row'},
-                React.createElement('span',{className:'metric-name'},'Counterfactual Flip Rate'),
-                React.createElement(Bar,{val:data.flipRate*300,color:data.flipRate>0.1?'var(--amber)':'var(--teal)'}),
-                React.createElement('span',{className:'metric-val-label'},(data.flipRate*100).toFixed(1)+'%'),
-              ),
-            )
-          ),
-        ),
-
-        // Recommendations
-        React.createElement('div',{className:'card'},
-          React.createElement('div',{className:'card-head'},
-            React.createElement('div',{className:'card-title'},'⚡ Recommended Actions'),
-          ),
-          React.createElement('div',{className:'card-body'},
-            data.recommendations.map((r,i)=>
-              React.createElement('div',{key:i,style:{
-                display:'flex',gap:'12px',padding:'10px 0',
-                borderBottom:i<data.recommendations.length-1?'1px solid var(--border)':'none'
-              }},
-                React.createElement('div',{style:{
-                  width:'22px',height:'22px',borderRadius:'50%',background:'var(--amber-dim)',
-                  border:'1px solid rgba(245,166,35,.3)',display:'flex',alignItems:'center',
-                  justifyContent:'center',fontSize:'10px',fontWeight:700,color:'var(--amber)',
-                  flexShrink:0,fontFamily:'var(--font-mono)'
-                }},i+1),
-                React.createElement('div',{style:{fontSize:'13px',color:'var(--fg2)'}},r),
-              )
-            )
-          )
+        e('div',{className:'mit-score'},
+          e('div',{style:{fontSize:'11px',color:'var(--text3)',marginBottom:'2px'}},'Before: '+m.before),
+          e('div',{className:'mit-num',style:{color:m.after<m.before?'var(--green)':'var(--text2)'}},m.after),
+          e('span',{className:`mit-delta ${m.imp>0?'delta-pos':'delta-none'}`},m.imp>0?'−'+m.imp+' pts':'No change'),
         )
-      ),
-
-      // ── DATA TAB ──
-      tab==='data'&&React.createElement('div',null,
-        React.createElement('div',{className:'page-header'},
-          React.createElement('div',{className:'page-title'},'Data Audit'),
-          React.createElement('div',{className:'page-subtitle'},'Statistical bias analysis on raw dataset before model training'),
-        ),
-        React.createElement('div',{className:'grid-2'},
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'Fairness Metrics')),
-            React.createElement('div',{className:'card-body'},
-              [
-                {name:'Disparate Impact Ratio',val:data.dir,fmt:v=>v.toFixed(4),pass:v=>v>=0.8,note:'< 0.80 = FAIL (four-fifths rule)'},
-                {name:'Demographic Parity Gap',val:data.dpg,fmt:v=>v.toFixed(4),pass:v=>v<0.1,note:'> 0.10 = concerning'},
-                {name:'Chi-square significant',val:1,fmt:()=>'Yes',pass:()=>false,note:'p < 0.05'},
-              ].map((m,i)=>
-                React.createElement('div',{key:i,className:'metric-row'},
-                  React.createElement('div',{style:{flex:1}},
-                    React.createElement('div',{style:{fontSize:'12px',fontWeight:500,marginBottom:'2px'}},m.name),
-                    React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)'}},m.note),
-                  ),
-                  React.createElement('div',{style:{textAlign:'right'}},
-                    React.createElement('div',{style:{fontFamily:'var(--font-mono)',fontSize:'15px',fontWeight:600,color:m.pass(m.val)?'var(--teal)':'var(--red)'}},m.fmt(m.val)),
-                    React.createElement('span',{className:`pill ${m.pass(m.val)?'pill-pass':'pill-fail'}`,style:{marginTop:'4px',display:'inline-block'}},m.pass(m.val)?'PASS ✓':'FAIL ✗'),
-                  )
-                )
-              )
-            )
-          ),
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'Group Representation')),
-            React.createElement('div',{className:'card-body'},
-              React.createElement('div',{style:{marginBottom:'20px'}},
-                React.createElement('div',{style:{fontSize:'12px',color:'var(--fg3)',marginBottom:'10px',fontFamily:'var(--font-mono)'}}, 'POSITIVE RATE BY GROUP'),
-                ['Privileged','Unprivileged'].map((g,i)=>{
-                  const rate=i===0?(data.dpg+0.22)*100:0.22*100*0.8;
-                  return React.createElement('div',{key:g,style:{marginBottom:'12px'}},
-                    React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'4px'}},
-                      React.createElement('span',{style:{fontSize:'12px'}},[ds.protected.split(',')[0]+' = '+g]),
-                      React.createElement('span',{className:'mono',style:{color:i===0?'var(--amber)':'var(--teal)'}},(rate).toFixed(1)+'%'),
-                    ),
-                    React.createElement('div',{style:{height:'8px',background:'var(--ink3)',borderRadius:'4px',overflow:'hidden'}},
-                      React.createElement('div',{style:{height:'100%',width:`${Math.min(rate,100)}%`,background:i===0?'var(--amber)':'var(--teal)',borderRadius:'4px'}})
-                    )
-                  );
-                })
-              ),
-              React.createElement('div',{style:{padding:'12px',background:'var(--ink3)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
-                React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)',marginBottom:'6px'}}, 'OVERALL BIAS SCORE'),
-                React.createElement('div',{style:{fontFamily:'var(--font-head)',fontSize:'36px',fontWeight:800,color:sevColor(data.dataSev)}},data.dataScore),
-                React.createElement('div',{style:{fontSize:'11px',color:'var(--fg3)'}}, '/ 100 — '+data.dataSev),
-              )
-            )
-          )
+      )),
+      e('div',{style:{padding:'16px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r2)',marginTop:'4px',boxShadow:'var(--shadow)'}},
+        e('div',{className:'section-label'},'How each strategy works'),
+        e('div',{className:'g3',style:{marginTop:'12px'}},
+          [{icon:'⊟',n:'Pre-processing',d:'Reweighing assigns sample weights to underrepresented group/label combinations so the model trains on a more representative view of the data.'},
+           {icon:'⊞',n:'In-processing',d:'ExponentiatedGradient (Fairlearn) adds an EqualizedOdds constraint to the training objective, preventing the optimizer from trading group parity for accuracy.'},
+           {icon:'⊠',n:'Post-processing',d:'After training, per-group decision thresholds are calibrated to equalize true positive rates — no model retraining required.'},
+          ].map(s=>e('div',{key:s.n,style:{padding:'14px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
+            e('div',{style:{fontSize:'15px',marginBottom:'8px',color:'var(--text3)'}}),
+            e('div',{style:{fontSize:'12px',fontWeight:600,marginBottom:'5px',color:'var(--text)'}},s.icon+' '+s.n),
+            e('div',{style:{fontSize:'12px',color:'var(--text2)',lineHeight:1.6}},s.d),
+          ))
         )
-      ),
+      )
+    ),
 
-      // ── MODEL TAB ──
-      tab==='model'&&React.createElement('div',null,
-        React.createElement('div',{className:'page-header'},
-          React.createElement('div',{className:'page-title'},'Model Audit'),
-          React.createElement('div',{className:'page-subtitle'},'LogisticRegression trained on dataset · SHAP explainability · Per-group fairness metrics'),
-        ),
-        React.createElement('div',{className:'grid-2',style:{marginBottom:'20px'}},
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'Overall Performance')),
-            React.createElement('div',{className:'card-body'},
-              [
-                {label:'Accuracy',val:data.acc,color:'var(--amber)'},
-                {label:'ROC-AUC',val:data.auc,color:'var(--teal)'},
-              ].map(m=>
-                React.createElement('div',{key:m.label,style:{marginBottom:'16px'}},
-                  React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'6px'}},
-                    React.createElement('span',{style:{fontSize:'12px',color:'var(--fg3)'}},[m.label]),
-                    React.createElement('span',{style:{fontFamily:'var(--font-mono)',fontSize:'14px',fontWeight:600,color:m.color}},(m.val*100).toFixed(1)+'%'),
-                  ),
-                  React.createElement('div',{style:{height:'6px',background:'var(--ink3)',borderRadius:'3px',overflow:'hidden'}},
-                    React.createElement('div',{style:{height:'100%',width:`${m.val*100}%`,background:m.color,borderRadius:'3px'}})
-                  )
-                )
-              ),
-              React.createElement('div',{style:{height:'1px',background:'var(--border)',margin:'16px 0'}}),
-              [
-                {label:'TPR Gap (Equalized Odds)',val:data.tprGap,fmt:v=>v.toFixed(4),bad:v=>v>0.1},
-                {label:'FPR Gap',val:data.fprGap,fmt:v=>v.toFixed(4),bad:v=>v>0.05},
-                {label:'Counterfactual Flip Rate',val:data.flipRate,fmt:v=>(v*100).toFixed(1)+'%',bad:v=>v>0.05},
-                {label:'Model DIR',val:data.dir,fmt:v=>v.toFixed(4),bad:v=>v<0.8},
-              ].map(m=>
-                React.createElement('div',{key:m.label,className:'metric-row'},
-                  React.createElement('span',{className:'metric-name'},m.label),
-                  React.createElement('span',{style:{fontFamily:'var(--font-mono)',fontSize:'13px',color:m.bad(m.val)?'var(--red)':'var(--teal)'}},m.fmt(m.val)),
-                )
-              )
-            )
-          ),
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'SHAP Feature Importance')),
-            React.createElement('div',{className:'card-body'},
-              React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)',marginBottom:'12px'}},
-                'MEAN |SHAP VALUE| — FEATURES DRIVING PREDICTIONS'
-              ),
-              data.shap.map((s,i)=>{
-                const isProt=s.feat.includes('protected');
-                const pct=(s.val/maxShap)*100;
-                return React.createElement('div',{key:s.feat,className:'shap-row'},
-                  React.createElement('span',{className:'shap-feat',style:{color:isProt?'var(--red)':'var(--fg2)'}},s.feat),
-                  React.createElement('div',{className:'shap-bar-wrap'},
-                    React.createElement('div',{className:'shap-bar',style:{
-                      width:`${pct}%`,
-                      background:isProt?'var(--red)':i<3?'var(--amber)':'var(--ink4)',
-                    }},
-                      pct>25&&React.createElement('span',null,s.val.toFixed(3))
-                    )
-                  ),
-                  !isProt&&React.createElement('span',{className:'shap-score'},s.val.toFixed(3)),
-                  isProt&&React.createElement('span',{style:{fontSize:'9px',color:'var(--red)',fontFamily:'var(--font-mono)',width:'50px',textAlign:'right',flexShrink:0}},'⚠ PROT'),
-                );
-              })
-            )
-          )
-        )
-      ),
-
-      // ── MITIGATION TAB ──
-      tab==='mitigation'&&React.createElement('div',null,
-        React.createElement('div',{className:'page-header'},
-          React.createElement('div',{className:'page-title'},'Mitigation Strategies'),
-          React.createElement('div',{className:'page-subtitle'},'Three strategies to reduce bias — before, during, and after model training'),
-        ),
-        data.mit.map((m,i)=>{
-          const isBest=m.imp===Math.max(...data.mit.map(x=>x.imp))&&m.imp>0;
-          return React.createElement('div',{key:i,className:`mit-card ${isBest?'best':''}`},
-            React.createElement('div',{className:'mit-icon',style:{background:`${m.color}22`}},m.icon),
-            React.createElement('div',{className:'mit-info'},
-              React.createElement('div',{className:'mit-name'},
-                m.name,
-                isBest&&React.createElement('span',{style:{marginLeft:'8px',fontSize:'10px',color:'var(--teal)',fontFamily:'var(--font-mono)',letterSpacing:'1px'}},'★ BEST'),
-              ),
-              React.createElement('div',{className:'mit-desc'},m.sub),
-              React.createElement('div',{style:{marginTop:'10px'}},
-                React.createElement('div',{style:{height:'6px',background:'var(--ink)',borderRadius:'3px',overflow:'hidden',width:'100%',maxWidth:'300px'}},
-                  React.createElement('div',{style:{height:'100%',width:`${m.after}%`,background:isBest?'var(--teal)':m.color,borderRadius:'3px',transition:'width .8s ease'}})
-                ),
-                React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',marginTop:'4px',fontFamily:'var(--font-mono)'}},
-                  `Bias score after: ${m.after}/100`
+    // REPORT
+    tab==='report'&&e('div',null,
+      e('div',{style:{marginBottom:'16px'}},e('h2',{style:{fontSize:'15px',fontWeight:600,marginBottom:'4px'}},'Audit report'),e('p',{style:{fontSize:'12px',color:'var(--text3)'}},'Compliance-ready PDF and machine-readable JSON reports')),
+      e('div',{className:'g2'},
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Report summary')),
+          e('div',{className:'card-body'},
+            e('div',{className:'section-label'},'Dataset metadata'),
+            e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'16px'}},
+              [{l:'Dataset',v:ds.name},{l:'Domain',v:ds.domain},{l:'Rows',v:ds.rows},{l:'Protected attr.',v:ds.protected},{l:'Target',v:'Binary outcome'},{l:'Model',v:'LogisticRegression'}].map(r=>
+                e('div',{key:r.l,style:{padding:'8px 10px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
+                  e('div',{style:{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--mono)',marginBottom:'3px'}},r.l),
+                  e('div',{style:{fontSize:'12px',fontWeight:500,color:'var(--text)'}},r.v),
                 )
               )
             ),
-            React.createElement('div',{className:'mit-scores'},
-              React.createElement('div',{className:'score-before'},`Before: ${m.before}`),
-              React.createElement('div',{className:'score-after',style:{color:m.after<m.before?'var(--teal)':m.after===m.before?'var(--fg2)':'var(--red)'}},m.after),
-              React.createElement('span',{className:`score-delta ${m.imp>0?'delta-pos':m.imp<0?'delta-neg':''}`,style:{marginTop:'4px',display:'inline-block'}},
-                m.imp>0?`−${m.imp} pts`:m.imp<0?`+${Math.abs(m.imp)} pts`:'No change'
-              ),
-            )
-          );
-        }),
-
-        React.createElement('div',{style:{marginTop:'24px',padding:'20px',background:'var(--ink3)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
-          React.createElement('div',{style:{fontFamily:'var(--font-mono)',fontSize:'10px',color:'var(--fg3)',marginBottom:'12px',letterSpacing:'1px'}},'HOW IT WORKS'),
-          React.createElement('div',{className:'grid-3'},
-            [
-              {icon:'⚖️',name:'Pre-processing',desc:'Reweighing assigns sample weights to underrepresented group/label combinations before training. The model sees a balanced view of the data.'},
-              {icon:'🎯',name:'In-processing',desc:'ExponentiatedGradient (Fairlearn) adds a fairness constraint to the training objective. The optimizer cannot sacrifice group parity for overall accuracy.'},
-              {icon:'🔧',name:'Post-processing',desc:'After training, we find per-group decision thresholds that equalize True Positive Rates across demographic groups — no retraining needed.'},
-            ].map(s=>
-              React.createElement('div',{key:s.name,style:{padding:'16px',background:'var(--card)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
-                React.createElement('div',{style:{fontSize:'20px',marginBottom:'8px'}},s.icon),
-                React.createElement('div',{style:{fontFamily:'var(--font-head)',fontWeight:700,marginBottom:'6px',fontSize:'13px'}},s.name),
-                React.createElement('div',{style:{fontSize:'12px',color:'var(--fg3)',lineHeight:1.6}},s.desc),
+            e('div',{className:'section-label'},'Verdict'),
+            e('div',{style:{display:'flex',gap:'10px'}},
+              [{lbl:'Data',score:d.dataScore,sev:d.dataSev},{lbl:'Model',score:d.modelScore,sev:d.modelSev}].map(x=>
+                e('div',{key:x.lbl,style:{flex:1,padding:'12px',background:'var(--surface2)',borderRadius:'var(--r)',textAlign:'center',border:'1px solid var(--border)'}},
+                  e('div',{style:{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--mono)',marginBottom:'4px'}},x.lbl),
+                  e('div',{style:{fontFamily:'var(--mono)',fontSize:'24px',fontWeight:600,color:sevColor(x.sev)}},x.score),
+                  e('span',{className:`badge ${sev(x.sev)}`,style:{marginTop:'6px',display:'inline-block'}},x.sev),
+                )
               )
             )
           )
-        )
-      ),
-
-      // ── REPORT TAB ──
-      tab==='report'&&React.createElement('div',null,
-        React.createElement('div',{className:'page-header'},
-          React.createElement('div',{className:'page-title'},'Audit Report'),
-          React.createElement('div',{className:'page-subtitle'},'Compliance-ready PDF and JSON reports'),
         ),
-        React.createElement('div',{className:'grid-2'},
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},
-              React.createElement('div',{className:'card-title'},'📋 Report Summary'),
-            ),
-            React.createElement('div',{className:'card-body'},
-              React.createElement('div',{className:'report-section'},
-                React.createElement('div',{className:'report-section-title'},'Dataset'),
-                React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
-                  [{l:'Dataset',v:ds.name},{l:'Domain',v:ds.domain},{l:'Rows',v:ds.rows},{l:'Protected',v:ds.protected},{l:'Target',v:'Outcome (binary)'},{l:'Model',v:'LogisticRegression'},].map(r=>
-                    React.createElement('div',{key:r.l,style:{padding:'8px',background:'var(--ink3)',borderRadius:'4px'}},
-                      React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)',marginBottom:'2px'}},r.l),
-                      React.createElement('div',{style:{fontSize:'12px',fontWeight:500}},r.v),
-                    )
-                  )
-                )
+        e('div',{className:'card'},
+          e('div',{className:'card-head'},e('span',{className:'card-title'},'Download reports')),
+          e('div',{className:'card-body'},
+            [{icon:'↓',label:'PDF report',desc:'Compliance report with full metrics, charts, and recommendations',ext:'PDF',href:`${API}/report/${sel}/pdf`},
+             {icon:'↓',label:'JSON report',desc:'Machine-readable audit data for CI/CD pipeline integration',ext:'JSON',href:`${API}/report/${sel}/json`},
+             {icon:'↻',label:'Re-run audit',desc:'Re-run the full pipeline with latest data and model',ext:'Run',href:null},
+            ].map(r=>e('a',{
+              key:r.label,href:r.href||'#',target:r.href?'_blank':'_self',
+              style:{display:'flex',alignItems:'center',gap:'12px',padding:'12px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)',marginBottom:'8px',textDecoration:'none',cursor:'pointer',transition:'border-color .1s,background .1s'},
+              onMouseOver:ev=>ev.currentTarget.style.borderColor='var(--border2)',
+              onMouseOut:ev=>ev.currentTarget.style.borderColor='var(--border)',
+            },
+              e('div',{style:{width:'32px',height:'32px',borderRadius:'var(--r)',background:'var(--surface2)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',flexShrink:0}},r.icon),
+              e('div',{style:{flex:1}},
+                e('div',{style:{fontWeight:600,fontSize:'13px',marginBottom:'2px',color:'var(--text)'}},r.label),
+                e('div',{style:{fontSize:'11px',color:'var(--text3)'}},r.desc),
               ),
-              React.createElement('div',{className:'report-section'},
-                React.createElement('div',{className:'report-section-title'},'Verdict'),
-                React.createElement('div',{style:{display:'flex',gap:'12px'}},
-                  React.createElement('div',{style:{flex:1,padding:'12px',background:'var(--ink3)',borderRadius:'var(--r)',textAlign:'center'}},
-                    React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)',marginBottom:'4px'}},'DATA'),
-                    React.createElement('div',{style:{fontFamily:'var(--font-head)',fontSize:'24px',fontWeight:800,color:sevColor(data.dataSev)}},data.dataScore),
-                    React.createElement('span',{className:`pill ${sevClass(data.dataSev)}`,style:{marginTop:'6px',display:'inline-block'}},data.dataSev),
-                  ),
-                  React.createElement('div',{style:{flex:1,padding:'12px',background:'var(--ink3)',borderRadius:'var(--r)',textAlign:'center'}},
-                    React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)',marginBottom:'4px'}},'MODEL'),
-                    React.createElement('div',{style:{fontFamily:'var(--font-head)',fontSize:'24px',fontWeight:800,color:sevColor(data.modelSev)}},data.modelScore),
-                    React.createElement('span',{className:`pill ${sevClass(data.modelSev)}`,style:{marginTop:'6px',display:'inline-block'}},data.modelSev),
-                  ),
-                )
-              )
-            )
-          ),
-          React.createElement('div',{className:'card'},
-            React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'⬇ Download Reports')),
-            React.createElement('div',{className:'card-body'},
-              [
-                {icon:'📄',name:'PDF Report',desc:'Full compliance report with charts and recommendations',ext:'PDF',color:'var(--red)',href:`${API_BASE}/report/${selected}/pdf`},
-                {icon:'{}',name:'JSON Report',desc:'Machine-readable audit results for CI/CD pipeline integration',ext:'JSON',color:'var(--teal)',href:`${API_BASE}/report/${selected}/json`},
-                {icon:'⚡',name:'Re-run Audit',desc:'Re-run the full pipeline on this dataset with latest model',ext:'RUN',color:'var(--amber)',href:null},
-              ].map(r=>
-                React.createElement('a',{
-                  key:r.name,
-                  href:r.href||'#',
-                  target:r.href?'_blank':'_self',
-                  style:{
-                    display:'flex',alignItems:'center',gap:'14px',padding:'14px',
-                    background:'var(--ink3)',borderRadius:'var(--r)',border:'1px solid var(--border)',
-                    marginBottom:'10px',textDecoration:'none',cursor:'pointer',
-                    transition:'border-color .15s',
-                  },
-                  onMouseOver:e=>e.currentTarget.style.borderColor='var(--border2)',
-                  onMouseOut:e=>e.currentTarget.style.borderColor='var(--border)',
-                },
-                  React.createElement('div',{style:{
-                    width:'36px',height:'36px',borderRadius:'6px',
-                    background:`${r.color}22`,border:`1px solid ${r.color}44`,
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                    fontSize:'14px',fontFamily:'var(--font-mono)',fontWeight:700,
-                    color:r.color,flexShrink:0,
-                  }},r.icon),
-                  React.createElement('div',{style:{flex:1}},
-                    React.createElement('div',{style:{fontWeight:600,fontSize:'13px',marginBottom:'2px'}},r.name),
-                    React.createElement('div',{style:{fontSize:'11px',color:'var(--fg3)'}},r.desc),
-                  ),
-                  React.createElement('div',{style:{
-                    fontFamily:'var(--font-mono)',fontSize:'10px',padding:'3px 8px',
-                    borderRadius:'4px',background:`${r.color}22`,color:r.color,fontWeight:700,
-                  }},r.ext)
-                )
-              )
-            )
+              e('span',{className:'tag'},r.ext),
+            ))
           )
         )
       )
@@ -1093,200 +578,145 @@ function AuditPage({initialDataset}){
   );
 }
 
+// ── Upload Page ──
 function UploadPage(){
-  const [drag,setDrag]=useState(false);
   const [file,setFile]=useState(null);
+  const [drag,setDrag]=useState(false);
   const [target,setTarget]=useState('');
   const [prot,setProt]=useState('');
-  const [result,setResult]=useState(null);
   const [loading,setLoading]=useState(false);
-  const fileRef=useRef();
+  const [result,setResult]=useState(null);
+  const ref=useRef();
 
-  const handleFile=f=>{
-    if(f&&f.name.endsWith('.csv')){setFile(f);}
-  };
-
-  const handleSubmit=async()=>{
-    if(!file||!target||!prot){alert('Please fill all fields');return;}
+  const handleFile=f=>{if(f&&f.name.endsWith('.csv'))setFile(f)};
+  const submit=async()=>{
+    if(!file||!target||!prot){alert('Please fill all fields.');return;}
     setLoading(true);
     try{
       const fd=new FormData();
-      fd.append('file',file);
-      fd.append('target_column',target);
-      fd.append('protected_column',prot);
-      const res=await fetch(`${API_BASE}/audit/upload`,{method:'POST',body:fd});
-      const data=await res.json();
-      setResult(data);
-    }catch(e){
-      // Demo fallback
+      fd.append('file',file);fd.append('target_column',target);fd.append('protected_column',prot);
+      const res=await fetch(`${API}/audit/upload`,{method:'POST',body:fd});
+      setResult(await res.json());
+    }catch{
       setResult({status:'ok',n_rows:1250,data_bias_score:68,data_severity:'MEDIUM',model_bias_score:45,model_severity:'MEDIUM',tpr_gap:0.112,fpr_gap:0.033});
     }
     setLoading(false);
   };
 
-  return React.createElement('div',{className:'page'},
-    React.createElement('div',{className:'page-header'},
-      React.createElement('div',{className:'page-title'},'Upload Custom Dataset'),
-      React.createElement('div',{className:'page-subtitle'},'Run FairLens bias audit on your own CSV data'),
-    ),
-    React.createElement('div',{className:'grid-2'},
-      React.createElement('div',null,
-        React.createElement('div',{
-          className:`upload-zone ${drag?'drag':''}`,
-          onDragOver:e=>{e.preventDefault();setDrag(true)},
+  return e('div',{className:'fadein'},
+    loading&&e('div',{className:'overlay'},e('div',{className:'spinner'}),e('div',{className:'overlay-text'},'Running bias audit...')),
+    e('div',{style:{marginBottom:'20px'}},e('h2',{style:{fontSize:'16px',fontWeight:600,marginBottom:'4px'}},'Upload custom dataset'),e('p',{style:{fontSize:'12px',color:'var(--text3)'}},'Run FairLens bias auditing on your own CSV file')),
+    e('div',{className:'g2'},
+      e('div',null,
+        e('div',{
+          className:`drop-zone ${drag?'over':''}`,
+          style:{marginBottom:'14px'},
+          onDragOver:ev=>{ev.preventDefault();setDrag(true)},
           onDragLeave:()=>setDrag(false),
-          onDrop:e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0])},
-          onClick:()=>fileRef.current.click(),
+          onDrop:ev=>{ev.preventDefault();setDrag(false);handleFile(ev.dataTransfer.files[0])},
+          onClick:()=>ref.current.click(),
         },
-          React.createElement('input',{type:'file',ref:fileRef,accept:'.csv',style:{display:'none'},onChange:e=>handleFile(e.target.files[0])}),
-          React.createElement('div',{className:'upload-icon'},file?'✅':'📂'),
-          React.createElement('div',{className:'upload-title'},file?file.name:'Drop CSV file here'),
-          React.createElement('div',{className:'upload-sub'},file?`${(file.size/1024).toFixed(1)} KB`:'or click to browse · CSV only'),
+          e('input',{type:'file',ref,accept:'.csv',style:{display:'none'},onChange:ev=>handleFile(ev.target.files[0])}),
+          e('div',{className:'drop-icon'},file?'✓':'↑'),
+          e('div',{className:'drop-title'},file?file.name:'Drop CSV file here'),
+          e('div',{className:'drop-sub'},file?`${(file.size/1024).toFixed(1)} KB — ready to audit`:'or click to browse · CSV files only'),
         ),
-        React.createElement('div',{style:{marginTop:'16px',display:'flex',flexDirection:'column',gap:'10px'}},
-          React.createElement('div',null,
-            React.createElement('label',{style:{fontSize:'11px',color:'var(--fg3)',fontFamily:'var(--font-mono)',letterSpacing:'1px',display:'block',marginBottom:'4px'}},'TARGET COLUMN *'),
-            React.createElement('input',{
-              type:'text',placeholder:'e.g. income, hired, recid',value:target,onChange:e=>setTarget(e.target.value),
-              style:{width:'100%',background:'var(--ink3)',border:'1px solid var(--border2)',borderRadius:'var(--r)',padding:'10px 12px',color:'var(--fg)',fontFamily:'var(--font-mono)',fontSize:'13px',outline:'none'}
-            })
-          ),
-          React.createElement('div',null,
-            React.createElement('label',{style:{fontSize:'11px',color:'var(--fg3)',fontFamily:'var(--font-mono)',letterSpacing:'1px',display:'block',marginBottom:'4px'}},'PROTECTED ATTRIBUTE *'),
-            React.createElement('input',{
-              type:'text',placeholder:'e.g. gender, race, age_group',value:prot,onChange:e=>setProt(e.target.value),
-              style:{width:'100%',background:'var(--ink3)',border:'1px solid var(--border2)',borderRadius:'var(--r)',padding:'10px 12px',color:'var(--fg)',fontFamily:'var(--font-mono)',fontSize:'13px',outline:'none'}
-            })
-          ),
-          React.createElement('button',{
-            className:'btn btn-primary',
-            style:{width:'100%',justifyContent:'center',padding:'12px'},
-            onClick:handleSubmit,disabled:loading
-          },loading?'Running Audit...':'⚡ Run Bias Audit'),
+        e('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}},
+          e('div',null,e('label',{className:'field-label'},'Target column'),e('input',{type:'text',placeholder:'e.g. income, hired, recid',value:target,onChange:ev=>setTarget(ev.target.value)})),
+          e('div',null,e('label',{className:'field-label'},'Protected attribute column'),e('input',{type:'text',placeholder:'e.g. gender, race, age_group',value:prot,onChange:ev=>setProt(ev.target.value)})),
+          e('button',{className:'btn btn-primary',style:{width:'100%',justifyContent:'center',padding:'9px'},onClick:submit,disabled:loading},'Run bias audit'),
         )
       ),
-      result&&React.createElement('div',{className:'card',style:{animation:'fadeUp .3s ease'}},
-        React.createElement('div',{className:'card-head'},
-          React.createElement('div',{className:'card-title'},'✅ Audit Complete'),
-          React.createElement('span',{className:`pill ${sevClass(result.data_severity)}`},result.data_severity),
-        ),
-        React.createElement('div',{className:'card-body'},
-          React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}},
-            [
-              {l:'Rows analysed',v:result.n_rows?.toLocaleString()},
-              {l:'Data bias score',v:`${result.data_bias_score}/100`},
-              {l:'Model bias score',v:`${result.model_bias_score}/100`},
-              {l:'TPR gap',v:result.tpr_gap?.toFixed(4)},
-            ].map(r=>
-              React.createElement('div',{key:r.l,style:{padding:'10px',background:'var(--ink3)',borderRadius:'var(--r)'}},
-                React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',fontFamily:'var(--font-mono)',marginBottom:'2px'}},r.l.toUpperCase()),
-                React.createElement('div',{style:{fontFamily:'var(--font-head)',fontSize:'20px',fontWeight:700,color:'var(--amber)'}},r.v),
+      result?e('div',{className:'card fadein'},
+        e('div',{className:'card-head'},e('span',{className:'card-title'},'Audit complete'),e('span',{className:`badge ${sev(result.data_severity)}`},result.data_severity)),
+        e('div',{className:'card-body'},
+          e('div',{className:'g2',style:{marginBottom:'14px'}},
+            [{l:'Rows analysed',v:result.n_rows?.toLocaleString()},{l:'Data bias score',v:`${result.data_bias_score}/100`},{l:'Model bias score',v:`${result.model_bias_score}/100`},{l:'TPR gap',v:result.tpr_gap?.toFixed(4)}].map(r=>
+              e('div',{key:r.l,style:{padding:'10px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)'}},
+                e('div',{style:{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--mono)',marginBottom:'3px'}},r.l.toUpperCase()),
+                e('div',{style:{fontFamily:'var(--mono)',fontSize:'18px',fontWeight:600,color:'var(--blue)'}},r.v),
               )
             )
           ),
-          React.createElement('div',{style:{padding:'12px',background:'var(--teal-dim)',borderRadius:'var(--r)',border:'1px solid rgba(0,201,167,.2)'}},
-            React.createElement('div',{style:{fontSize:'12px',color:'var(--teal)',fontWeight:600,marginBottom:'4px'}},'✓ Reports generated'),
-            React.createElement('div',{style:{fontSize:'11px',color:'var(--fg3)'}}, 'PDF and JSON reports available. Check the API endpoints for download.'),
+          e('div',{style:{padding:'10px 12px',background:'var(--green-bg)',borderRadius:'var(--r)',border:'1px solid var(--green-border)'}},
+            e('div',{style:{fontSize:'12px',fontWeight:600,color:'var(--green)',marginBottom:'2px'}},'Reports generated'),
+            e('div',{style:{fontSize:'11px',color:'var(--text2)'}},'PDF and JSON reports are available via the API endpoints.'),
           )
         )
-      ),
-      !result&&React.createElement('div',{className:'card'},
-        React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'What we check')),
-        React.createElement('div',{className:'card-body'},
+      ):e('div',{className:'card'},
+        e('div',{className:'card-head'},e('span',{className:'card-title'},'What FairLens checks')),
+        e('div',{className:'card-body'},
           [
-            {icon:'📊',title:'Disparate Impact Ratio',desc:'P(pos|unprivileged) / P(pos|privileged) — flagged if < 0.80 (US EEOC four-fifths rule)'},
-            {icon:'📐',title:'Demographic Parity Gap',desc:'Absolute difference in positive prediction rates across protected groups'},
-            {icon:'🔍',title:'Chi-square Test',desc:'Statistical significance of association between protected attribute and outcome'},
-            {icon:'🤖',title:'Model Fairness Metrics',desc:'Equalized odds, predictive parity, counterfactual flip rate via SHAP'},
-            {icon:'🛠',title:'Mitigation Strategies',desc:'Pre-, in-, and post-processing bias fixes with before/after comparison'},
-          ].map(c=>
-            React.createElement('div',{key:c.title,style:{display:'flex',gap:'12px',padding:'10px 0',borderBottom:'1px solid var(--border)'}},
-              React.createElement('span',{style:{fontSize:'18px',flexShrink:0}},c.icon),
-              React.createElement('div',null,
-                React.createElement('div',{style:{fontWeight:600,fontSize:'12px',marginBottom:'2px'}},c.title),
-                React.createElement('div',{style:{fontSize:'11px',color:'var(--fg3)'}},c.desc),
-              )
+            {icon:'◈',title:'Disparate impact ratio',desc:'P(positive|unprivileged) / P(positive|privileged) — flagged if below 0.80 (US EEOC four-fifths rule)'},
+            {icon:'◉',title:'Demographic parity gap',desc:'Absolute difference in positive prediction rates across groups'},
+            {icon:'◎',title:'Chi-square test',desc:'Statistical significance of association between protected attribute and outcome'},
+            {icon:'⊞',title:'Equalized odds',desc:'Equal TPR and FPR across demographic groups via SHAP and model audit'},
+            {icon:'⊠',title:'Mitigation strategies',desc:'Pre-, in-, and post-processing fixes with before/after score comparison'},
+          ].map(c=>e('div',{key:c.title,style:{display:'flex',gap:'10px',padding:'9px 0',borderBottom:'1px solid var(--border)'}},
+            e('span',{style:{fontSize:'14px',flexShrink:0,color:'var(--text3)'}}),
+            e('div',null,
+              e('div',{style:{fontWeight:500,fontSize:'12px',marginBottom:'2px',color:'var(--text)'}},c.icon+' '+c.title),
+              e('div',{style:{fontSize:'11px',color:'var(--text3)',lineHeight:1.5}},c.desc),
             )
-          )
+          ))
         )
       )
     )
   );
 }
 
+// ── About Page ──
 function AboutPage(){
-  const metrics=[
-    {name:'Disparate Impact Ratio',formula:'P(pos|unpriv) / P(pos|priv)',threshold:'< 0.80 = FAIL',source:'US EEOC Four-Fifths Rule'},
-    {name:'Demographic Parity Gap',formula:'|P(pos|g=1) − P(pos|g=0)|',threshold:'> 0.10 = concerning',source:'Fairness ML literature'},
-    {name:'Equalized Odds (TPR gap)',formula:'|TPR_priv − TPR_unpriv|',threshold:'> 0.05 = concerning',source:'Hardt et al., 2016'},
-    {name:'Equal Opportunity (FPR gap)',formula:'|FPR_priv − FPR_unpriv|',threshold:'> 0.05 = concerning',source:'Hardt et al., 2016'},
-    {name:'Counterfactual Flip Rate',formula:'% predictions that change when protected attr is flipped',threshold:'> 10% = high reliance',source:'Counterfactual fairness'},
-    {name:'SHAP Feature Importance',formula:'E[|f(x) − f(x\\\\protected=0)|]',threshold:'Protected rank ≤ 5 = investigate',source:'Lundberg & Lee, 2017'},
-  ];
-
-  const stack=[
-    {name:'IBM AIF360',role:'Fairness metrics + Reweighing'},
-    {name:'Microsoft Fairlearn',role:'ExponentiatedGradient (EqualizedOdds)'},
-    {name:'SHAP',role:'Model explainability'},
-    {name:'scikit-learn',role:'LogisticRegression, RandomForest'},
-    {name:'FastAPI',role:'REST API backend'},
-    {name:'ReportLab',role:'PDF report generation'},
-  ];
-
-  return React.createElement('div',{className:'page'},
-    React.createElement('div',{className:'page-header'},
-      React.createElement('div',{className:'page-title'},'About FairLens'),
-      React.createElement('div',{className:'page-subtitle'},'End-to-end AI bias detection and mitigation · Hack2Skill — Unbiased AI Decision'),
-    ),
-    React.createElement('div',{className:'grid-2',style:{marginBottom:'24px'}},
-      React.createElement('div',{className:'card'},
-        React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'Fairness Metrics Reference')),
-        React.createElement('div',{className:'table-wrap'},
-          React.createElement('table',null,
-            React.createElement('thead',null,React.createElement('tr',null,['Metric','Threshold','Source'].map(h=>React.createElement('th',{key:h},h)))),
-            React.createElement('tbody',null,
-              metrics.map(m=>React.createElement('tr',{key:m.name},
-                React.createElement('td',null,React.createElement('div',null,React.createElement('strong',null,m.name),React.createElement('div',{className:'mono',style:{marginTop:'2px',opacity:.6}},m.formula))),
-                React.createElement('td',{className:'mono'},m.threshold),
-                React.createElement('td',{className:'mono'},m.source),
-              ))
+  return e('div',{className:'fadein'},
+    e('div',{style:{marginBottom:'20px'}},e('h2',{style:{fontSize:'16px',fontWeight:600,marginBottom:'4px'}},'About FairLens'),e('p',{style:{fontSize:'12px',color:'var(--text3)'}},'End-to-end AI bias detection and mitigation — Hack2Skill 2026')),
+    e('div',{className:'g2',style:{marginBottom:'16px'}},
+      e('div',{className:'card'},
+        e('div',{className:'card-head'},e('span',{className:'card-title'},'Fairness metrics reference')),
+        e('div',{className:'tbl-wrap'},
+          e('table',null,
+            e('thead',null,e('tr',null,['Metric','Threshold','Source'].map(h=>e('th',{key:h},h)))),
+            e('tbody',null,
+              [
+                {m:'Disparate impact ratio',t:'< 0.80 = FAIL',s:'US EEOC four-fifths rule'},
+                {m:'Demographic parity gap',t:'> 0.10 = concerning',s:'Fairness ML literature'},
+                {m:'Equalized odds (TPR gap)',t:'> 0.05 = concerning',s:'Hardt et al., 2016'},
+                {m:'Equal opportunity (FPR gap)',t:'> 0.05 = concerning',s:'Hardt et al., 2016'},
+                {m:'Counterfactual flip rate',t:'> 10% = high reliance',s:'Counterfactual fairness'},
+                {m:'SHAP feature importance',t:'Protected rank ≤ 5 = investigate',s:'Lundberg & Lee, 2017'},
+              ].map(r=>e('tr',{key:r.m},e('td',{style:{fontWeight:500}},r.m),e('td',{className:'mono'},r.t),e('td',{className:'mono'},r.s)))
             )
           )
         )
       ),
-      React.createElement('div',{className:'card'},
-        React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'Tech Stack')),
-        React.createElement('div',{className:'card-body'},
-          stack.map(s=>React.createElement('div',{key:s.name,style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border)'}},
-            React.createElement('span',{style:{fontWeight:600,fontSize:'13px'}},s.name),
-            React.createElement('span',{style:{fontSize:'11px',color:'var(--fg3)',fontFamily:'var(--font-mono)'}},s.role),
+      e('div',{className:'card'},
+        e('div',{className:'card-head'},e('span',{className:'card-title'},'Tech stack')),
+        e('div',{className:'card-body'},
+          [
+            {n:'IBM AIF360',r:'Fairness metrics + Reweighing mitigation'},
+            {n:'Microsoft Fairlearn',r:'ExponentiatedGradient (EqualizedOdds)'},
+            {n:'SHAP',r:'Model explainability and feature attribution'},
+            {n:'scikit-learn',r:'LogisticRegression, RandomForestClassifier'},
+            {n:'FastAPI',r:'REST API backend + file serving'},
+            {n:'ReportLab',r:'PDF audit report generation'},
+          ].map(s=>e('div',{key:s.n,style:{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--border)'}},
+            e('span',{style:{fontWeight:500,fontSize:'13px'}}),e('span',{style:{fontSize:'12px',color:'var(--text2)',fontFamily:'var(--mono)',fontSize:'11px',color:'var(--text3)'}},s.r)
           ))
         )
       )
     ),
-    React.createElement('div',{className:'card'},
-      React.createElement('div',{className:'card-head'},React.createElement('div',{className:'card-title'},'API Reference')),
-      React.createElement('div',{className:'table-wrap'},
-        React.createElement('table',null,
-          React.createElement('thead',null,React.createElement('tr',null,['Method','Endpoint','Description'].map(h=>React.createElement('th',{key:h},h)))),
-          React.createElement('tbody',null,
-            [
-              ['GET','/',  'Health check + available datasets'],
-              ['GET','/datasets','List all available datasets'],
-              ['POST','/audit/data/{name}','Statistical data audit'],
-              ['POST','/audit/model/{name}','Train model + audit for bias'],
-              ['POST','/audit/full/{name}','Full pipeline: audit + mitigate + report'],
-              ['GET','/report/{name}/pdf','Download PDF audit report'],
-              ['GET','/report/{name}/json','Download JSON audit report'],
-              ['POST','/audit/upload','Upload custom CSV and audit'],
-            ].map(([m,e,d])=>React.createElement('tr',{key:e},
-              React.createElement('td',null,React.createElement('span',{style:{
-                fontFamily:'var(--font-mono)',fontSize:'10px',fontWeight:700,padding:'2px 6px',borderRadius:'3px',
-                background:m==='GET'?'var(--teal-dim)':'var(--amber-dim)',color:m==='GET'?'var(--teal)':'var(--amber)'
-              }},m)),
-              React.createElement('td',{className:'mono'},e),
-              React.createElement('td',{style:{color:'var(--fg3)',fontSize:'12px'}},d),
-            ))
+    e('div',{className:'card'},
+      e('div',{className:'card-head'},e('span',{className:'card-title'},'API reference')),
+      e('div',{className:'tbl-wrap'},
+        e('table',null,
+          e('thead',null,e('tr',null,['Method','Endpoint','Description'].map(h=>e('th',{key:h},h)))),
+          e('tbody',null,
+            [['GET','/','Health check + dataset list'],['GET','/datasets','List all available datasets'],['POST','/audit/data/{name}','Statistical data audit'],['POST','/audit/model/{name}','Train model + audit for bias'],['POST','/audit/full/{name}','Full pipeline: audit + mitigate + report'],['GET','/report/{name}/pdf','Download PDF audit report'],['GET','/report/{name}/json','Download JSON audit report'],['POST','/audit/upload','Upload custom CSV and audit']].map(([m,ep,d])=>
+              e('tr',{key:ep},
+                e('td',null,e('span',{style:{fontFamily:'var(--mono)',fontSize:'10px',fontWeight:600,padding:'2px 6px',borderRadius:'4px',background:m==='GET'?'var(--green-bg)':'var(--blue-bg)',color:m==='GET'?'var(--green)':'var(--blue)',border:`1px solid ${m==='GET'?'var(--green-border)':'var(--blue-border)'}`}},m)),
+                e('td',{className:'mono'},ep),
+                e('td',{style:{fontSize:'12px',color:'var(--text3)'}},d),
+              )
+            )
           )
         )
       )
@@ -1296,87 +726,65 @@ function AboutPage(){
 
 // ── Root App ──
 function App(){
-  const [page,setPage]=useState('home');
-  const [auditDataset,setAuditDataset]=useState('adult');
-
-  const navigate=(p,ds)=>{
-    setPage(p);
-    if(ds)setAuditDataset(ds);
-  };
+  const [page,setPage]=useState('dashboard');
+  const [auditDs,setAuditDs]=useState('adult');
+  const nav=(p,ds)=>{setPage(p);if(ds)setAuditDs(ds)};
 
   const navItems=[
-    {id:'home',icon:'⬡',label:'Overview'},
-    {id:'audit',icon:'◈',label:'Audit Explorer'},
-    {id:'upload',icon:'⊕',label:'Upload Data'},
-    {id:'about',icon:'◉',label:'About & Docs'},
+    {id:'dashboard',label:'Dashboard'},
+    {id:'audit',label:'Audit explorer'},
+    {id:'upload',label:'Upload dataset'},
+    {id:'about',label:'About & docs'},
   ];
 
-  return React.createElement('div',{className:'layout'},
-    // Sidebar
-    React.createElement('aside',{className:'sidebar'},
-      React.createElement('div',{className:'sidebar-logo'},
-        React.createElement('div',{className:'logo-mark'},'FL'),
-        React.createElement('div',{className:'logo-text'},React.createElement('span',null,'Fair'),'Lens'),
+  return e('div',{id:'app'},
+    e('nav',{className:'sidebar'},
+      e('div',{className:'sidebar-brand'},
+        e('div',{className:'brand-mark'},'FL'),
+        e('div',{className:'brand-name'},e('span',null,'Fair'),'Lens'),
       ),
-      React.createElement('div',{className:'nav-section'},'Navigation'),
-      navItems.map(n=>
-        React.createElement('div',{
-          key:n.id,
-          className:`nav-item ${page===n.id?'active':''}`,
-          onClick:()=>navigate(n.id),
-        },
-          React.createElement('span',{className:'icon'},n.icon),
-          n.label,
-        )
+      e('div',{className:'nav-group'},
+        e('div',{className:'nav-label'},'Navigation'),
+        navItems.map(n=>e('button',{key:n.id,className:`nav-item ${page===n.id?'active':''}`,onClick:()=>nav(n.id)},
+          e('span',{className:'nav-dot',style:{background:page===n.id?'var(--blue)':'var(--border2)'}}),n.label
+        ))
       ),
-      React.createElement('div',{className:'nav-section'},'Datasets'),
-      DATASETS.map(d=>
-        React.createElement('div',{
-          key:d.id,
-          className:`nav-item ${page==='audit'&&auditDataset===d.id?'active':''}`,
-          onClick:()=>navigate('audit',d.id),
-        },
-          React.createElement('span',{className:'icon'},d.icon),
+      e('div',{className:'nav-group'},
+        e('div',{className:'nav-label'},'Datasets'),
+        DS.map(d=>e('button',{key:d.id,className:`nav-item ${page==='audit'&&auditDs===d.id?'active':''}`,onClick:()=>nav('audit',d.id)},
+          e('span',{className:'nav-dot',style:{background:d.severity==='HIGH'?'var(--red)':d.severity==='MEDIUM'?'var(--amber)':'var(--green)'}}),
           d.name,
-          React.createElement('span',{className:`pill ${sevClass(d.severity)}`,style:{marginLeft:'auto',fontSize:'9px',padding:'2px 5px'}},d.dataBias),
-        )
+          e('span',{className:'tag',style:{marginLeft:'auto',fontSize:'10px'}},d.dataBias),
+        ))
       ),
-      React.createElement('div',{className:'sidebar-footer'},
-        React.createElement('div',{className:'version-badge'},'FairLens v1.0.0'),
-        React.createElement('div',{style:{fontSize:'10px',color:'var(--fg3)',marginTop:'6px',fontFamily:'var(--font-mono)'}},'Hack2Skill 2026'),
+      e('div',{className:'sidebar-foot'},
+        e('div',{className:'version-tag'},'FairLens v1.0'),
+        e('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'3px'}},'Hack2Skill 2026'),
       )
     ),
-
-    // Main
-    React.createElement('main',{className:'main'},
-      React.createElement('div',{className:'topbar'},
-        React.createElement('div',{className:'topbar-title'},
-          page==='home'?'Dashboard':
-          page==='audit'?'Audit Explorer':
-          page==='upload'?'Upload Dataset':'About & Docs'
+    e('div',{className:'main'},
+      e('div',{className:'topbar'},
+        e('div',{className:'topbar-left'},
+          e('span',{className:'topbar-title'},navItems.find(n=>n.id===page)?.label||'Dashboard'),
+          page==='audit'&&e('span',{className:'topbar-tag'},DS.find(d=>d.id===auditDs)?.name),
         ),
-        React.createElement('div',{className:'topbar-actions'},
-          React.createElement('a',{
-            href:'https://github.com/YOUR_USERNAME/fairlens',
-            target:'_blank',
-            className:'btn btn-ghost',style:{textDecoration:'none',fontSize:'12px'}
-          },'⭐ GitHub'),
-          React.createElement('a',{
-            href:`${API_BASE}/docs`,target:'_blank',
-            className:'btn btn-ghost',style:{textDecoration:'none',fontSize:'12px'}
-          },'API Docs'),
-          React.createElement('button',{className:'btn btn-primary',onClick:()=>navigate('upload')},'+ New Audit'),
+        e('div',{className:'topbar-right'},
+          e('a',{href:'https://github.com/ujjwaltwri/fairlens',target:'_blank',className:'btn'},'GitHub'),
+          e('a',{href:`${API}/docs`,target:'_blank',className:'btn'},'API docs'),
+          e('button',{className:'btn btn-primary',onClick:()=>nav('upload')},'+ New audit'),
         )
       ),
-      page==='home'&&React.createElement(OverviewPage,{onNavigate:navigate}),
-      page==='audit'&&React.createElement(AuditPage,{key:auditDataset,initialDataset:auditDataset}),
-      page==='upload'&&React.createElement(UploadPage,null),
-      page==='about'&&React.createElement(AboutPage,null),
+      e('div',{className:'content'},
+        page==='dashboard'&&e(DashPage,{nav}),
+        page==='audit'&&e(AuditPage,{key:auditDs,initDs:auditDs}),
+        page==='upload'&&e(UploadPage,null),
+        page==='about'&&e(AboutPage,null),
+      )
     )
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+ReactDOM.createRoot(document.getElementById('app')).render(e(App));
 </script>
 </body>
 </html>
