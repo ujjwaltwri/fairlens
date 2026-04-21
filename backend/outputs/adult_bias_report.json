@@ -1,6 +1,6 @@
 {
   "report_metadata": {
-    "generated_at": "2026-04-21T13:47:20.794265",
+    "generated_at": "2026-04-21T13:55:46.319506",
     "dataset_name": "adult",
     "dataset_label": "UCI Adult (Census Income)",
     "report_version": "2.0"
@@ -138,13 +138,13 @@
       },
       "fairness_constraint": {
         "before_score": 46,
-        "after_score": 17,
-        "improvement": 29,
+        "after_score": 14,
+        "improvement": 32,
         "before_tpr_gap": 0.2976,
-        "after_tpr_gap": 0.0749,
+        "after_tpr_gap": 0.0607,
         "before_accuracy": 0.8214345708046363,
-        "after_accuracy": 0.8105996976314463,
-        "accuracy_cost_per_bias_point": 0.000374
+        "after_accuracy": 0.8106836888963548,
+        "accuracy_cost_per_bias_point": 0.000336
       },
       "threshold_calibration": {
         "before_score": 0,

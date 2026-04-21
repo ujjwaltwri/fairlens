@@ -50,6 +50,7 @@ import numpy as np
 import database as db_ops
 import storage as storage_ops
 from gemini import generate_narrative, generate_recommendation, chat as gemini_chat
+from data_validator import validate_csv_file, validate_dataframe, validate_named_dataset
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -366,6 +367,15 @@ async def run_full_audit(
         db_ops.update_job_status(job_id, "failed", completed=True)
         raise HTTPException(500, f"Failed to load dataset: {e}")
 
+    # Validate loaded dataset
+    val = validate_named_dataset(dataset)
+    if not val["valid"]:
+        db_ops.update_job_status(job_id, "failed", completed=True)
+        raise HTTPException(422, detail={
+            "message": "Dataset validation failed",
+            "errors":  val["errors"],
+        })
+
     background_tasks.add_task(
         _run_pipeline_bg, job_id, name, dataset, model_type
     )
@@ -397,6 +407,15 @@ async def audit_uploaded_csv(
 
     content = await file.read()
 
+    # File-level validation first (before parsing)
+    file_val = validate_csv_file(content, file.filename)
+    if not file_val["valid"]:
+        raise HTTPException(422, detail={
+            "message":     "File validation failed",
+            "errors":      file_val["errors"],
+            "suggestions": file_val["suggestions"],
+        })
+
     # Validate CSV
     try:
         import io
@@ -404,14 +423,25 @@ async def audit_uploaded_csv(
     except Exception as e:
         raise HTTPException(400, f"Could not parse CSV: {e}")
 
-    if target_column not in df.columns:
-        raise HTTPException(400, f"Target column '{target_column}' not in CSV. Got: {list(df.columns)}")
-    if protected_column not in df.columns:
-        raise HTTPException(400, f"Protected column '{protected_column}' not in CSV. Got: {list(df.columns)}")
+    # DataFrame-level validation
+    df_val = validate_dataframe(
+        df,
+        target_column=target_column,
+        protected_column=protected_column,
+        positive_label=positive_label,
+        dataset_label=dataset_label,
+    )
+    if not df_val["valid"]:
+        raise HTTPException(422, detail={
+            "message":     "Data validation failed",
+            "errors":      df_val["errors"],
+            "warnings":    df_val["warnings"],
+            "suggestions": df_val["suggestions"],
+            "stats":       df_val["stats"],
+        })
 
-    unique_vals = df[target_column].unique()
-    if len(unique_vals) > 2:
-        raise HTTPException(400, f"Target must be binary. Got {len(unique_vals)} unique values")
+    # Non-blocking warnings — include in response but continue
+    validation_warnings = df_val["warnings"]
 
     # Upload CSV to Supabase Storage
     try:
@@ -467,6 +497,7 @@ async def audit_uploaded_csv(
         "job_id": job_id,
         "upload_id": upload_id,
         "n_rows": len(df),
+        "validation_warnings": validation_warnings,
         "poll_url": f"/jobs/{job_id}",
         "message": "CSV uploaded and pipeline started. Poll /jobs/{job_id} for status.",
     }
