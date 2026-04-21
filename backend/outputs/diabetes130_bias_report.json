@@ -1,0 +1,160 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-04-21T12:36:14.864677",
+    "dataset_name": "diabetes130",
+    "dataset_label": "Diabetes 130-US Hospitals",
+    "report_version": "1.0"
+  },
+  "data_audit": {
+    "n_rows": 20000,
+    "target": "readmit_30",
+    "overall_bias_score": 0,
+    "overall_severity": "LOW",
+    "attribute_results": {
+      "race_binary": {
+        "disparate_impact_ratio": 0.9979,
+        "dir_pass": true,
+        "demographic_parity_gap": 0.0002,
+        "positive_rate_privileged": 0.112,
+        "positive_rate_unprivileged": 0.1118,
+        "chi2_pvalue": 0.99,
+        "chi2_significant": false,
+        "bias_score": 0,
+        "severity": "LOW",
+        "top_proxy_features": [
+          [
+            "age_num",
+            0.1639
+          ],
+          [
+            "age_binary",
+            0.1513
+          ],
+          [
+            "admission_type_id",
+            0.1109
+          ],
+          [
+            "number_diagnoses",
+            0.0806
+          ],
+          [
+            "gender_binary",
+            0.0649
+          ]
+        ]
+      }
+    }
+  },
+  "model_audit": {
+    "model_type": "logistic",
+    "overall_metrics": {
+      "accuracy": 0.8884,
+      "precision": 0.5294,
+      "recall": 0.0161,
+      "roc_auc": 0.6157
+    },
+    "group_metrics": {
+      "privileged": {
+        "n": 993,
+        "accuracy": 0.8983,
+        "tpr": 0.0291,
+        "fpr": 0.0011,
+        "precision": 0.75,
+        "positive_rate": 0.004
+      },
+      "unprivileged": {
+        "n": 4007,
+        "accuracy": 0.8859,
+        "tpr": 0.0132,
+        "fpr": 0.002,
+        "precision": 0.4615,
+        "positive_rate": 0.0032
+      }
+    },
+    "tpr_gap": 0.0159,
+    "fpr_gap": 0.0009,
+    "predictive_parity_gap": 0.2885,
+    "counterfactual_flip_rate": 0.0,
+    "model_dir": 0.8,
+    "bias_score": 3,
+    "severity": "LOW",
+    "top_shap_features": [
+      [
+        "number_inpatient",
+        0.2308
+      ],
+      [
+        "diabetesmed",
+        0.119
+      ],
+      [
+        "payer_code",
+        0.0924
+      ],
+      [
+        "number_diagnoses",
+        0.0823
+      ],
+      [
+        "metformin",
+        0.0768
+      ],
+      [
+        "age_binary",
+        0.0741
+      ],
+      [
+        "discharge_disposition_id",
+        0.0703
+      ],
+      [
+        "admission_type_id",
+        0.0675
+      ],
+      [
+        "change",
+        0.0567
+      ],
+      [
+        "time_in_hospital",
+        0.0396
+      ]
+    ]
+  },
+  "mitigation": {
+    "strategies": {
+      "reweighing": {
+        "before_score": 3,
+        "after_score": 3,
+        "improvement": 0,
+        "before_tpr_gap": 0.016,
+        "after_tpr_gap": 0.016,
+        "before_accuracy": 0.8884,
+        "after_accuracy": 0.8884
+      },
+      "fairness_constraint": {
+        "before_score": 3,
+        "after_score": 3,
+        "improvement": 0,
+        "before_tpr_gap": 0.016,
+        "after_tpr_gap": 0.016,
+        "before_accuracy": 0.8884,
+        "after_accuracy": 0.8884
+      },
+      "threshold_calibration": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0,
+        "after_tpr_gap": 0,
+        "before_accuracy": 0.8884,
+        "after_accuracy": 0.5532
+      }
+    },
+    "best_strategy": "reweighing",
+    "recommended_actions": [
+      "LOW RISK: Monitor for drift, re-audit quarterly"
+    ]
+  }
+}

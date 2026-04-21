@@ -1,0 +1,163 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-04-21T12:36:14.833333",
+    "dataset_name": "compas",
+    "dataset_label": "COMPAS Recidivism (ProPublica)",
+    "report_version": "1.0"
+  },
+  "data_audit": {
+    "n_rows": 5278,
+    "target": "two_year_recid",
+    "overall_bias_score": 62,
+    "overall_severity": "MEDIUM",
+    "attribute_results": {
+      "race_binary": {
+        "disparate_impact_ratio": 0.7471,
+        "dir_pass": false,
+        "demographic_parity_gap": 0.1323,
+        "positive_rate_privileged": 0.5231,
+        "positive_rate_unprivileged": 0.3909,
+        "chi2_pvalue": 0.0,
+        "chi2_significant": true,
+        "bias_score": 62,
+        "severity": "MEDIUM",
+        "top_proxy_features": [
+          [
+            "decile_score",
+            0.2829
+          ],
+          [
+            "age",
+            0.211
+          ],
+          [
+            "priors_count",
+            0.1957
+          ],
+          [
+            "age_cat_enc",
+            0.1807
+          ],
+          [
+            "c_charge_degree",
+            0.1029
+          ]
+        ]
+      }
+    }
+  },
+  "model_audit": {
+    "model_type": "logistic",
+    "overall_metrics": {
+      "accuracy": 0.6606,
+      "precision": 0.6593,
+      "recall": 0.5765,
+      "roc_auc": 0.7119
+    },
+    "group_metrics": {
+      "privileged": {
+        "n": 783,
+        "accuracy": 0.6628,
+        "tpr": 0.6732,
+        "fpr": 0.3485,
+        "precision": 0.6798,
+        "positive_rate": 0.5185
+      },
+      "unprivileged": {
+        "n": 537,
+        "accuracy": 0.6574,
+        "tpr": 0.3886,
+        "fpr": 0.1687,
+        "precision": 0.5985,
+        "positive_rate": 0.2551
+      }
+    },
+    "tpr_gap": 0.2846,
+    "fpr_gap": 0.1798,
+    "predictive_parity_gap": 0.0813,
+    "counterfactual_flip_rate": 0.0045,
+    "model_dir": 0.492,
+    "bias_score": 80,
+    "severity": "HIGH",
+    "top_shap_features": [
+      [
+        "priors_count",
+        0.6222
+      ],
+      [
+        "age",
+        0.5011
+      ],
+      [
+        "age_cat",
+        0.1941
+      ],
+      [
+        "age_cat_enc",
+        0.1055
+      ],
+      [
+        "c_charge_degree",
+        0.0936
+      ],
+      [
+        "sex",
+        0.0653
+      ],
+      [
+        "sex_binary",
+        0.0653
+      ],
+      [
+        "days_b_screening_arrest",
+        0.0415
+      ],
+      [
+        "race",
+        0.0056
+      ],
+      [
+        "race_binary",
+        0.0056
+      ]
+    ]
+  },
+  "mitigation": {
+    "strategies": {
+      "reweighing": {
+        "before_score": 60,
+        "after_score": 60,
+        "improvement": 0,
+        "before_tpr_gap": 0.2845,
+        "after_tpr_gap": 0.2845,
+        "before_accuracy": 0.6606060606060606,
+        "after_accuracy": 0.6606060606060606
+      },
+      "fairness_constraint": {
+        "before_score": 60,
+        "after_score": 23,
+        "improvement": 37,
+        "before_tpr_gap": 0.2845,
+        "after_tpr_gap": 0.0504,
+        "before_accuracy": 0.6606060606060606,
+        "after_accuracy": 0.6409090909090909
+      },
+      "threshold_calibration": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0,
+        "after_tpr_gap": 0,
+        "before_accuracy": 0.6606060606060606,
+        "after_accuracy": 0.4765151515151515
+      }
+    },
+    "best_strategy": "fairness_constraint",
+    "recommended_actions": [
+      "Apply reweighing to fix disparate impact on 'race_binary' (DIR=0.75)",
+      "Protected attribute 'race_binary' is statistically associated with outcome \u2014 investigate proxy features",
+      "True positive rate gap of 0.285 detected \u2014 apply equalized odds post-processing",
+      "HIGH RISK: Do not deploy this model without bias mitigation"
+    ]
+  }
+}

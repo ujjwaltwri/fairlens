@@ -983,7 +983,7 @@ function AuditPage({initialDataset}){
               React.createElement('div',{className:'score-before'},`Before: ${m.before}`),
               React.createElement('div',{className:'score-after',style:{color:m.after<m.before?'var(--teal)':m.after===m.before?'var(--fg2)':'var(--red)'}},m.after),
               React.createElement('span',{className:`score-delta ${m.imp>0?'delta-pos':m.imp<0?'delta-neg':''}`,style:{marginTop:'4px',display:'inline-block'}},
-                m.imp>0?`−${m.imp} pts`:m.imp<0?`+${Math.abs(m.imp)} pts`,'No change'
+                m.imp>0?`−${m.imp} pts`:m.imp<0?`+${Math.abs(m.imp)} pts`:'No change'
               ),
             )
           );

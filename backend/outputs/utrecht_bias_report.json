@@ -1,0 +1,147 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-04-21T12:36:14.853598",
+    "dataset_name": "utrecht",
+    "dataset_label": "Utrecht Fairness Recruitment",
+    "report_version": "1.0"
+  },
+  "data_audit": {
+    "n_rows": 2000,
+    "target": "hired",
+    "overall_bias_score": 84,
+    "overall_severity": "HIGH",
+    "attribute_results": {
+      "gender_binary": {
+        "disparate_impact_ratio": 0.6747,
+        "dir_pass": false,
+        "demographic_parity_gap": 0.2758,
+        "positive_rate_privileged": 0.8477,
+        "positive_rate_unprivileged": 0.5719,
+        "chi2_pvalue": 0.0,
+        "chi2_significant": true,
+        "bias_score": 84,
+        "severity": "HIGH",
+        "top_proxy_features": [
+          [
+            "interview_score",
+            0.0327
+          ],
+          [
+            "skill_score",
+            0.0186
+          ],
+          [
+            "age",
+            0.0115
+          ],
+          [
+            "experience",
+            0.0012
+          ]
+        ]
+      }
+    }
+  },
+  "model_audit": {
+    "model_type": "logistic",
+    "overall_metrics": {
+      "accuracy": 0.894,
+      "precision": 0.9098,
+      "recall": 0.9475,
+      "roc_auc": 0.9607
+    },
+    "group_metrics": {
+      "privileged": {
+        "n": 271,
+        "accuracy": 0.8967,
+        "tpr": 0.9733,
+        "fpr": 0.4783,
+        "precision": 0.9087,
+        "positive_rate": 0.8893
+      },
+      "unprivileged": {
+        "n": 229,
+        "accuracy": 0.8908,
+        "tpr": 0.9051,
+        "fpr": 0.1304,
+        "precision": 0.9118,
+        "positive_rate": 0.5939
+      }
+    },
+    "tpr_gap": 0.0682,
+    "fpr_gap": 0.3479,
+    "predictive_parity_gap": 0.0031,
+    "counterfactual_flip_rate": 0.16,
+    "model_dir": 0.6678,
+    "bias_score": 64,
+    "severity": "MEDIUM",
+    "top_shap_features": [
+      [
+        "experience",
+        2.6865
+      ],
+      [
+        "skill_score",
+        1.7482
+      ],
+      [
+        "gender",
+        0.9501
+      ],
+      [
+        "gender_binary",
+        0.9501
+      ],
+      [
+        "interview_score",
+        0.6813
+      ],
+      [
+        "age",
+        0.1628
+      ],
+      [
+        "education",
+        0.0567
+      ]
+    ]
+  },
+  "mitigation": {
+    "strategies": {
+      "reweighing": {
+        "before_score": 38,
+        "after_score": 38,
+        "improvement": 0,
+        "before_tpr_gap": 0.0682,
+        "after_tpr_gap": 0.0682,
+        "before_accuracy": 0.894,
+        "after_accuracy": 0.894
+      },
+      "fairness_constraint": {
+        "before_score": 38,
+        "after_score": 15,
+        "improvement": 23,
+        "before_tpr_gap": 0.0682,
+        "after_tpr_gap": 0.0063,
+        "before_accuracy": 0.894,
+        "after_accuracy": 0.89
+      },
+      "threshold_calibration": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0,
+        "after_tpr_gap": 0,
+        "before_accuracy": 0.894,
+        "after_accuracy": 0.834
+      }
+    },
+    "best_strategy": "fairness_constraint",
+    "recommended_actions": [
+      "Apply reweighing to fix disparate impact on 'gender_binary' (DIR=0.67)",
+      "Protected attribute 'gender_binary' is statistically associated with outcome \u2014 investigate proxy features",
+      "Counterfactual flip rate 16.0% \u2014 model is directly using protected attribute",
+      "MEDIUM RISK: Apply at least one mitigation strategy before deployment"
+    ]
+  }
+}

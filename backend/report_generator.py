@@ -36,7 +36,7 @@ except ImportError:
     print("[WARN] reportlab not available — PDF generation disabled")
 
 
-OUTPUT_DIR = Path("/home/claude/bias_audit/outputs")
+OUTPUT_DIR = Path('./outputs')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 

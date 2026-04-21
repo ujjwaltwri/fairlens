@@ -1,0 +1,163 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-04-21T12:36:14.817898",
+    "dataset_name": "adult",
+    "dataset_label": "UCI Adult (Census Income)",
+    "report_version": "1.0"
+  },
+  "data_audit": {
+    "n_rows": 47621,
+    "target": "income",
+    "overall_bias_score": 99,
+    "overall_severity": "HIGH",
+    "attribute_results": {
+      "sex_binary": {
+        "disparate_impact_ratio": 0.3605,
+        "dir_pass": false,
+        "demographic_parity_gap": 0.1963,
+        "positive_rate_privileged": 0.307,
+        "positive_rate_unprivileged": 0.1107,
+        "chi2_pvalue": 0.0,
+        "chi2_significant": true,
+        "bias_score": 99,
+        "severity": "HIGH",
+        "top_proxy_features": [
+          [
+            "hours_per_week",
+            0.2301
+          ],
+          [
+            "age",
+            0.0868
+          ],
+          [
+            "capital_gain",
+            0.0473
+          ],
+          [
+            "capital_loss",
+            0.0455
+          ],
+          [
+            "fnlwgt",
+            0.0282
+          ]
+        ]
+      }
+    }
+  },
+  "model_audit": {
+    "model_type": "logistic",
+    "overall_metrics": {
+      "accuracy": 0.8214,
+      "precision": 0.7044,
+      "recall": 0.4534,
+      "roc_auc": 0.8485
+    },
+    "group_metrics": {
+      "privileged": {
+        "n": 7998,
+        "accuracy": 0.7842,
+        "tpr": 0.499,
+        "fpr": 0.0904,
+        "precision": 0.7083,
+        "positive_rate": 0.2152
+      },
+      "unprivileged": {
+        "n": 3908,
+        "accuracy": 0.8976,
+        "tpr": 0.2014,
+        "fpr": 0.0136,
+        "precision": 0.6544,
+        "positive_rate": 0.0348
+      }
+    },
+    "tpr_gap": 0.2976,
+    "fpr_gap": 0.0768,
+    "predictive_parity_gap": 0.0539,
+    "counterfactual_flip_rate": 0.0233,
+    "model_dir": 0.1617,
+    "bias_score": 68,
+    "severity": "MEDIUM",
+    "top_shap_features": [
+      [
+        "education_num",
+        0.6508
+      ],
+      [
+        "capital_gain",
+        0.545
+      ],
+      [
+        "age",
+        0.393
+      ],
+      [
+        "marital_status",
+        0.2871
+      ],
+      [
+        "hours_per_week",
+        0.2274
+      ],
+      [
+        "relationship",
+        0.2033
+      ],
+      [
+        "sex",
+        0.1988
+      ],
+      [
+        "sex_binary",
+        0.1988
+      ],
+      [
+        "capital_loss",
+        0.0701
+      ],
+      [
+        "education",
+        0.0676
+      ]
+    ]
+  },
+  "mitigation": {
+    "strategies": {
+      "reweighing": {
+        "before_score": 46,
+        "after_score": 46,
+        "improvement": 0,
+        "before_tpr_gap": 0.2976,
+        "after_tpr_gap": 0.2976,
+        "before_accuracy": 0.8214345708046363,
+        "after_accuracy": 0.8214345708046363
+      },
+      "fairness_constraint": {
+        "before_score": 46,
+        "after_score": 16,
+        "improvement": 30,
+        "before_tpr_gap": 0.2976,
+        "after_tpr_gap": 0.0722,
+        "before_accuracy": 0.8214345708046363,
+        "after_accuracy": 0.8104317151016295
+      },
+      "threshold_calibration": {
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0,
+        "after_tpr_gap": 0,
+        "before_accuracy": 0.8214345708046363,
+        "after_accuracy": 0.5971778934990761
+      }
+    },
+    "best_strategy": "fairness_constraint",
+    "recommended_actions": [
+      "Apply reweighing to fix disparate impact on 'sex_binary' (DIR=0.36)",
+      "Protected attribute 'sex_binary' is statistically associated with outcome \u2014 investigate proxy features",
+      "True positive rate gap of 0.298 detected \u2014 apply equalized odds post-processing",
+      "MEDIUM RISK: Apply at least one mitigation strategy before deployment"
+    ]
+  }
+}

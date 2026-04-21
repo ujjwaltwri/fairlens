@@ -1,0 +1,109 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-04-21T12:36:14.844588",
+    "dataset_name": "german",
+    "dataset_label": "German Credit (Statlog)",
+    "report_version": "1.0"
+  },
+  "data_audit": {
+    "n_rows": 1000,
+    "target": "class",
+    "overall_bias_score": 0,
+    "overall_severity": "LOW",
+    "attribute_results": {}
+  },
+  "model_audit": {
+    "model_type": "logistic",
+    "overall_metrics": {
+      "accuracy": 0.768,
+      "precision": 0.8095,
+      "recall": 0.8743,
+      "roc_auc": 0.7982
+    },
+    "group_metrics": {},
+    "tpr_gap": 0,
+    "fpr_gap": 0,
+    "predictive_parity_gap": 0,
+    "counterfactual_flip_rate": 0.0,
+    "model_dir": null,
+    "bias_score": 0,
+    "severity": "LOW",
+    "top_shap_features": [
+      [
+        "attribute1",
+        0.646
+      ],
+      [
+        "attribute6",
+        0.3222
+      ],
+      [
+        "attribute3",
+        0.3079
+      ],
+      [
+        "attribute8",
+        0.2762
+      ],
+      [
+        "attribute5",
+        0.2323
+      ],
+      [
+        "attribute2",
+        0.202
+      ],
+      [
+        "attribute14",
+        0.1995
+      ],
+      [
+        "attribute12",
+        0.1866
+      ],
+      [
+        "attribute19",
+        0.1721
+      ],
+      [
+        "attribute9",
+        0.1667
+      ]
+    ]
+  },
+  "mitigation": {
+    "strategies": {
+      "reweighing": {
+        "before_score": 60,
+        "after_score": 60,
+        "improvement": 0,
+        "before_tpr_gap": 0.8743,
+        "after_tpr_gap": 0.8743,
+        "before_accuracy": 0.768,
+        "after_accuracy": 0.768
+      },
+      "fairness_constraint": {
+        "before_score": 60,
+        "after_score": 60,
+        "improvement": 0,
+        "before_tpr_gap": 0.8743,
+        "after_tpr_gap": 0.8743,
+        "before_accuracy": 0.768,
+        "after_accuracy": 0.768
+      },
+      "threshold_calibration": {
+        "before_score": 60,
+        "after_score": 41,
+        "improvement": 19,
+        "before_tpr_gap": 0.8743,
+        "after_tpr_gap": 0.3257,
+        "before_accuracy": 0.768,
+        "after_accuracy": 0.516
+      }
+    },
+    "best_strategy": "threshold_calibration",
+    "recommended_actions": [
+      "LOW RISK: Monitor for drift, re-audit quarterly"
+    ]
+  }
+}

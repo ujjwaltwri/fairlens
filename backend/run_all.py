@@ -24,10 +24,8 @@ import time
 import json
 from pathlib import Path
 
-sys.path.insert(0, "/home/claude/bias_audit/scripts")
-
-OUTPUT_DIR = Path("/home/claude/bias_audit/outputs")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR = Path('./outputs')
+OUTPUT_DIR = Path('./outputs') 
 
 
 def print_banner():
