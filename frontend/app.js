@@ -163,14 +163,14 @@ const gapColor  = v => v > 0.1  ? 'var(--danger)' : v > 0.05 ? 'var(--warn)' : '
 /* ═══════════════════════════════════════════
    HOOKS
 ═══════════════════════════════════════════ */
-function useCountUp(target, duration = 900) {
+function useCountUp(target, duration = 1200) {
   const [val, setVal] = useState(0);
   useEffect(() => {
     let start = null;
     const tick = ts => {
       if (!start) start = ts;
       const p = Math.min((ts - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
+      const ease = 1 - Math.pow(1 - p, 4); // Quartic ease out for a much smoother slow-down
       setVal(Math.round(ease * target));
       if (p < 1) requestAnimationFrame(tick);
     };
@@ -182,29 +182,89 @@ function useCountUp(target, duration = 900) {
 /* ═══════════════════════════════════════════
    PRIMITIVES
 ═══════════════════════════════════════════ */
+// COMPLETELY REWRITTEN GAUGE: Mathematically perfect dasharray alignment
 function Gauge({ score, severity }) {
   const animated = useCountUp(score);
-  const R = 66, CX = 85, CY = 76, SW = 8;
-  const arc = pct => {
-    const angle = -Math.PI + pct * Math.PI;
-    return `M ${CX - R} ${CY} A ${R} ${R} 0 ${pct > 0.5 ? 1 : 0} 1 ${CX + R * Math.cos(angle)} ${CY + R * Math.sin(angle)}`;
-  };
-  const pct = Math.max(0.01, score / 100);
   const color = sevColor(severity);
+  
+  // Math for a perfect semi-circle
+  const R = 80;
+  const CX = 100;
+  const CY = 90;
+  const SW = 12;
+  const length = Math.PI * R; // Circumference of half circle = 251.327...
+  
+  // Calculate dash offset to reveal the path smoothly via CSS
+  const pct = Math.max(0.01, score / 100);
+  const strokeOffset = length - (length * pct);
+
+  // M = Move to start (left), A = Arc to end (right)
+  const pathD = `M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`;
+
   return e('div', { className: 'gauge-wrap' },
-    e('svg', { className: 'gauge-svg', viewBox: '0 0 170 86' },
-      e('path', { d: arc(1), fill: 'none', stroke: 'rgba(255,255,255,0.05)', strokeWidth: SW, strokeLinecap: 'round' }),
-      e('path', { d: arc(pct), fill: 'none', stroke: color, strokeWidth: SW, strokeLinecap: 'round' }),
-      e('text', { x: CX, y: CY - 8, textAnchor: 'middle', fontFamily: 'Instrument Serif, serif', fontSize: 28, fontWeight: 400, fill: color, letterSpacing: -1 }, animated),
-      e('text', { x: CX, y: CY + 10, textAnchor: 'middle', fontFamily: 'JetBrains Mono, monospace', fontSize: 9, fill: 'rgba(255,255,255,0.2)', letterSpacing: 1 }, '/ 100'),
+    e('svg', { className: 'gauge-svg', viewBox: '0 0 200 110' },
+      // Drop shadow definition for the "wow" glowing gauge effect
+      e('defs', null,
+        e('filter', { id: 'glow', x: '-20%', y: '-20%', width: '140%', height: '140%' },
+          e('feGaussianBlur', { stdDeviation: '4', result: 'blur' }),
+          e('feComposite', { in: 'SourceGraphic', in2: 'blur', operator: 'over' })
+        )
+      ),
+      // Background Track
+      e('path', { 
+        d: pathD, 
+        fill: 'none', 
+        stroke: 'var(--surface4)', 
+        strokeWidth: SW, 
+        strokeLinecap: 'round' 
+      }),
+      // Foreground Colored Track (Animated via CSS strokeDashoffset)
+      e('path', { 
+        d: pathD, 
+        fill: 'none', 
+        stroke: color, 
+        strokeWidth: SW, 
+        strokeLinecap: 'round',
+        strokeDasharray: length,
+        strokeDashoffset: strokeOffset,
+        style: { transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1)' },
+        filter: 'url(#glow)'
+      }),
+      // Centered Text
+      e('text', { 
+        x: CX, 
+        y: CY - 6, 
+        textAnchor: 'middle', 
+        fontFamily: 'Instrument Serif, serif', 
+        fontSize: 54, 
+        fontWeight: 400, 
+        fill: 'var(--t1)', 
+        letterSpacing: -2 
+      }, animated),
+      e('text', { 
+        x: CX, 
+        y: CY + 18, 
+        textAnchor: 'middle', 
+        fontFamily: 'JetBrains Mono, monospace', 
+        fontSize: 10, 
+        fill: 'var(--t3)', 
+        letterSpacing: 2,
+        fontWeight: 600
+      }, 'RISK SCORE')
     )
   );
 }
 
 function BiasBar({ value, max = 100, color }) {
-  const pct = Math.min(100, (value / max) * 100);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    // Delay animation slightly for dramatic reveal
+    const t = setTimeout(() => setW(Math.min(100, (value / max) * 100)), 100);
+    return () => clearTimeout(t);
+  }, [value, max]);
+
   return e('div', { className: 'bar-track' },
-    e('div', { className: 'bar-fill', style: { width: `${pct}%`, background: color || 'var(--accent)' } })
+    e('div', { className: 'bar-fill', style: { width: `${w}%`, background: color || 'var(--accent)' } })
   );
 }
 
@@ -238,63 +298,66 @@ function DashboardPage({ onNavigate }) {
   const avgBias   = Math.round(DATASETS.reduce((a, d) => a + d.dataBias, 0) / DATASETS.length);
   const avgModel  = Math.round(DATASETS.reduce((a, d) => a + d.modelBias, 0) / DATASETS.length);
   const animHigh  = useCountUp(highCount, 600);
-  const animAvg   = useCountUp(avgBias, 900);
-  const animModel = useCountUp(avgModel, 900);
+  const animAvg   = useCountUp(avgBias, 1000);
+  const animModel = useCountUp(avgModel, 1000);
 
   return e('div', { className: 'page' },
 
-    // Hero
-    e('div', { className: 'hero mb-20' },
-      e('div', { className: 'hero-badge-row' },
-        e(Badge, { label: 'Hack2Skill · Unbiased AI Decision', type: 'accent' }),
-        e(Badge, { label: '5 datasets audited', type: 'muted' }),
-      ),
-      e('h1', { className: 'hero-title' },
-        'Detect, measure, and eliminate ', e('em', null, 'hidden bias'), ' in AI models'
-      ),
-      e('p', { className: 'hero-desc' },
-        'FairLens provides statistical data auditing, model-level fairness metrics, SHAP explainability, and automated mitigation — across gender, race, and age — before discriminatory systems reach real people.'
-      ),
-      e('div', { className: 'hero-actions' },
-        e('button', { className: 'btn btn-primary', onClick: () => onNavigate('audit') }, 'Run audit'),
-        e('button', { className: 'btn', onClick: () => onNavigate('upload') }, 'Upload dataset'),
-        e('a', { href: `${API}/docs`, target: '_blank', className: 'btn btn-ghost' }, 'API docs ↗'),
+    // Hero (Enhanced with Glassmorphic Orbs)
+    e('div', { className: 'hero mb-24' },
+      e('div', { className: 'hero-orb orb-1' }),
+      e('div', { className: 'hero-orb orb-2' }),
+      e('div', { className: 'hero-content' },
+        e('div', { className: 'hero-badge-row' },
+          e(Badge, { label: 'Hack2Skill · Unbiased AI', type: 'accent' }),
+          e(Badge, { label: '5 datasets audited', type: 'glass' }),
+        ),
+        e('h1', { className: 'hero-title' },
+          'Detect, measure, and eliminate ', e('br'), e('em', null, 'hidden bias'), ' in AI models.'
+        ),
+        e('p', { className: 'hero-desc' },
+          'FairLens provides statistical data auditing, model-level fairness metrics, SHAP explainability, and automated mitigation — across gender, race, and age — before discriminatory systems reach production.'
+        ),
+        e('div', { className: 'hero-actions' },
+          e('button', { className: 'btn btn-primary btn-lg', onClick: () => onNavigate('audit') }, 'Run AI Audit'),
+          e('button', { className: 'btn btn-glass btn-lg', onClick: () => onNavigate('upload') }, 'Upload Custom CSV'),
+        )
       )
     ),
 
     // KPI row
-    e('div', { className: 'grid-4 mb-20' },
+    e('div', { className: 'grid-4 mb-24' },
       e('div', { className: 'stat-card' },
+        e('div', { className: 'stat-icon-bg' }, '◈'),
         e('div', { className: 'stat-label' }, 'Datasets audited'),
-        e('div', { className: 'stat-value', style: { color: 'var(--accent-light)' } }, '5'),
+        e('div', { className: 'stat-value', style: { color: 'var(--accent)' } }, '5'),
         e('div', { className: 'stat-detail' }, 'UCI · COMPAS · German · Utrecht · Diabetes'),
-        e('span', { className: 'stat-icon' }, '◈')
       ),
       e('div', { className: 'stat-card' },
+        e('div', { className: 'stat-icon-bg' }, '⚑'),
         e('div', { className: 'stat-label' }, 'High risk datasets'),
         e('div', { className: 'stat-value', style: { color: 'var(--danger)' } }, animHigh),
         e('div', { className: 'stat-detail' }, 'Require immediate mitigation'),
-        e('span', { className: 'stat-icon' }, '⚑')
       ),
       e('div', { className: 'stat-card' },
+        e('div', { className: 'stat-icon-bg' }, '◉'),
         e('div', { className: 'stat-label' }, 'Avg data bias'),
         e('div', { className: 'stat-value', style: { color: biasColor(animAvg) } }, animAvg),
         e('div', { className: 'stat-detail' }, 'Across all 5 datasets / 100'),
-        e('span', { className: 'stat-icon' }, '◉')
       ),
       e('div', { className: 'stat-card' },
+        e('div', { className: 'stat-icon-bg' }, '◎'),
         e('div', { className: 'stat-label' }, 'Avg model bias'),
         e('div', { className: 'stat-value', style: { color: biasColor(animModel) } }, animModel),
         e('div', { className: 'stat-detail' }, '7 fairness metrics tracked'),
-        e('span', { className: 'stat-icon' }, '◎')
       ),
     ),
 
     // Table
     e('div', { className: 'card' },
       e('div', { className: 'card-head' },
-        e('span', { className: 'card-title' }, 'All datasets'),
-        e('button', { className: 'btn btn-sm', onClick: () => onNavigate('audit') }, 'Explore →')
+        e('span', { className: 'card-title' }, 'Dataset Registry'),
+        e('button', { className: 'btn btn-sm', onClick: () => onNavigate('audit') }, 'Explore Audits →')
       ),
       e('div', { className: 'tbl-wrap' },
         e('table', null,
@@ -313,15 +376,15 @@ function DashboardPage({ onNavigate }) {
                 e('td', { className: 'mono' }, d.protected),
                 e('td', { className: 'mono' }, d.rows),
                 e('td', null,
-                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     e(BiasBar, { value: d.dataBias, color: biasColor(d.dataBias) }),
-                    e('span', { className: 'mono', style: { color: biasColor(d.dataBias), fontWeight: 500, minWidth: 24 } }, d.dataBias)
+                    e('span', { className: 'mono', style: { color: biasColor(d.dataBias), fontWeight: 600, minWidth: 26 } }, d.dataBias)
                   )
                 ),
                 e('td', null,
-                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     e(BiasBar, { value: d.modelBias, color: biasColor(d.modelBias) }),
-                    e('span', { className: 'mono', style: { color: biasColor(d.modelBias), fontWeight: 500, minWidth: 24 } }, d.modelBias)
+                    e('span', { className: 'mono', style: { color: biasColor(d.modelBias), fontWeight: 600, minWidth: 26 } }, d.modelBias)
                   )
                 ),
                 e('td', null, e(Badge, { label: d.severity, type: d.severity.toLowerCase().replace('medium','med') })),
@@ -341,21 +404,27 @@ function DashboardPage({ onNavigate }) {
    AUDIT SUB-TABS
 ═══════════════════════════════════════════ */
 function OverviewTab({ d, ds }) {
-  return e('div', null,
-    e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 } },
-      e('h2', { style: { fontSize: 15, fontWeight: 500, color: 'var(--t1)', letterSpacing: '-0.3px' } }, ds.name),
-      e('span', { className: 'tag' }, ds.domain),
-      e('span', { style: { fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } },
-        ds.protected + ' · ' + ds.rows + ' rows'
+  return e('div', { className: 'fade-enter' },
+    e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 } },
+      e('div', { className: 'ds-icon-lg' }, '◉'),
+      e('div', null,
+        e('h2', { style: { fontSize: 22, fontWeight: 600, color: 'var(--t1)', letterSpacing: '-0.5px', marginBottom: 2 } }, ds.name),
+        e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+          e('span', { className: 'tag' }, ds.domain),
+          e('span', { style: { fontSize: 12, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } },
+            ds.protected + ' · ' + ds.rows + ' rows'
+          )
+        )
       )
     ),
-    e('div', { className: 'grid-2 mb-16' },
+    e('div', { className: 'grid-2 mb-20' },
       e('div', { className: 'card' },
         e('div', { className: 'card-head' },
           e('span', { className: 'card-title' }, 'Data bias score'),
           e(Badge, { label: d.dataSev, type: d.dataSev.toLowerCase().replace('medium','med') })
         ),
-        e('div', { className: 'card-body' },
+        e('div', { className: 'card-body', style: { position: 'relative' } },
+          e('div', { className: 'gauge-bg-glow', style: { background: sevColor(d.dataSev) } }),
           e(Gauge, { score: d.dataScore, severity: d.dataSev }),
           e('div', { className: 'divider' }),
           e('div', { className: 'mrow' },
@@ -376,7 +445,8 @@ function OverviewTab({ d, ds }) {
           e('span', { className: 'card-title' }, 'Model bias score'),
           e(Badge, { label: d.modelSev, type: d.modelSev.toLowerCase().replace('medium','med') })
         ),
-        e('div', { className: 'card-body' },
+        e('div', { className: 'card-body', style: { position: 'relative' } },
+          e('div', { className: 'gauge-bg-glow', style: { background: sevColor(d.modelSev) } }),
           e(Gauge, { score: d.modelScore, severity: d.modelSev }),
           e('div', { className: 'divider' }),
           e('div', { className: 'mrow' },
@@ -397,8 +467,8 @@ function OverviewTab({ d, ds }) {
         )
       )
     ),
-    e('div', { className: 'card' },
-      e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Recommended actions')),
+    e('div', { className: 'card glass-card accent-border' },
+      e('div', { className: 'card-head' }, e('span', { className: 'card-title', style: { color: 'var(--accent)' } }, '✨ AI Recommended Actions')),
       e('div', { className: 'card-body' },
         d.recs.map((r, i) =>
           e('div', { key: i, className: 'rec-item' },
@@ -412,10 +482,10 @@ function OverviewTab({ d, ds }) {
 }
 
 function DataAuditTab({ d }) {
-  return e('div', null,
-    e('div', { style: { marginBottom: 16 } },
-      e('h2', { style: { fontSize: 14, fontWeight: 500, marginBottom: 3, color: 'var(--t1)', letterSpacing: '-0.2px' } }, 'Data audit'),
-      e('p', { style: { fontSize: 12, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } }, 'Statistical bias analysis on raw dataset — before any model is trained')
+  return e('div', { className: 'fade-enter' },
+    e('div', { style: { marginBottom: 20 } },
+      e('h2', { style: { fontSize: 20, fontWeight: 600, marginBottom: 4, color: 'var(--t1)', letterSpacing: '-0.4px' } }, 'Statistical Data Audit'),
+      e('p', { style: { fontSize: 13, color: 'var(--t3)' } }, 'Deep statistical bias analysis on raw dataset distributions — measured before any model is trained.')
     ),
     e('div', { className: 'grid-2' },
       e('div', { className: 'card' },
@@ -428,11 +498,11 @@ function DataAuditTab({ d }) {
           ].map((m, i) =>
             e('div', { key: i, className: 'mrow' },
               e('div', { style: { flex: 1 } },
-                e('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 2, color: 'var(--t1)' } }, m.name),
-                e('div', { style: { fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } }, m.note),
+                e('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4, color: 'var(--t1)' } }, m.name),
+                e('div', { style: { fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } }, m.note),
               ),
               e('div', { style: { textAlign: 'right' } },
-                e('div', { style: { fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500, color: m.pass(m.val) ? 'var(--ok)' : 'var(--danger)', marginBottom: 4 } }, m.fmt(m.val)),
+                e('div', { style: { fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600, color: m.pass(m.val) ? 'var(--ok)' : 'var(--danger)', marginBottom: 6 } }, m.fmt(m.val)),
                 e(Badge, { label: m.pass(m.val) ? 'Pass' : 'Fail', type: m.pass(m.val) ? 'pass' : 'fail' })
               )
             )
@@ -443,16 +513,16 @@ function DataAuditTab({ d }) {
         e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Positive rate by group')),
         e('div', { className: 'card-body' },
           e('div', { className: 'section-label' }, 'Outcome rate across protected groups'),
-          ['Privileged', 'Unprivileged'].map((g, i) => {
+          ['Privileged Group', 'Unprivileged Group'].map((g, i) => {
             const rate  = i === 0 ? d.posPriv : d.posUnpriv;
-            const color = i === 0 ? 'var(--warn)' : 'var(--accent-light)';
-            return e('div', { key: g, style: { marginBottom: 16 } },
-              e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 } },
-                e('span', { style: { fontSize: 12, color: 'var(--t2)', fontWeight: 500 } }, g),
-                e('span', { style: { fontFamily: 'var(--font-mono)', fontSize: 13, color, fontWeight: 500 } }, rate.toFixed(1) + '%')
+            const color = i === 0 ? 'var(--warn)' : 'var(--accent)';
+            return e('div', { key: g, style: { marginBottom: 20 } },
+              e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 8 } },
+                e('span', { style: { fontSize: 13, color: 'var(--t1)', fontWeight: 600 } }, g),
+                e('span', { style: { fontFamily: 'var(--font-mono)', fontSize: 14, color, fontWeight: 600 } }, rate.toFixed(1) + '%')
               ),
-              e('div', { style: { height: 8, background: 'var(--surface3)', borderRadius: 4, overflow: 'hidden' } },
-                e('div', { style: { height: '100%', width: `${Math.min(rate, 100)}%`, background: color, borderRadius: 4, transition: 'width .8s ease' } })
+              e('div', { style: { height: 10, background: 'var(--surface3)', borderRadius: 5, overflow: 'hidden' } },
+                e('div', { style: { height: '100%', width: `${Math.min(rate, 100)}%`, background: color, borderRadius: 5, transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' } })
               )
             );
           }),
@@ -470,10 +540,10 @@ function DataAuditTab({ d }) {
 
 function ModelAuditTab({ d }) {
   const maxShap = d.shap[0].v;
-  return e('div', null,
-    e('div', { style: { marginBottom: 16 } },
-      e('h2', { style: { fontSize: 14, fontWeight: 500, marginBottom: 3, color: 'var(--t1)', letterSpacing: '-0.2px' } }, 'Model audit'),
-      e('p', { style: { fontSize: 12, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } }, 'LogisticRegression trained · SHAP explainability · per-group fairness metrics')
+  return e('div', { className: 'fade-enter' },
+    e('div', { style: { marginBottom: 20 } },
+      e('h2', { style: { fontSize: 20, fontWeight: 600, marginBottom: 4, color: 'var(--t1)', letterSpacing: '-0.4px' } }, 'Model Fairness Audit'),
+      e('p', { style: { fontSize: 13, color: 'var(--t3)' } }, 'Analysis of the trained LogisticRegression model, including SHAP feature explainability and post-training parity metrics.')
     ),
     e('div', { className: 'grid-2' },
       e('div', { className: 'card' },
@@ -481,16 +551,16 @@ function ModelAuditTab({ d }) {
         e('div', { className: 'card-body' },
           e('div', { className: 'section-label' }, 'Model performance'),
           [
-            { label: 'Accuracy', val: d.acc, fmt: v => (v * 100).toFixed(2) + '%', color: 'var(--accent-light)' },
-            { label: 'ROC-AUC',  val: d.auc, fmt: v => v.toFixed(4),              color: 'var(--accent-light)' },
+            { label: 'Accuracy', val: d.acc, fmt: v => (v * 100).toFixed(2) + '%', color: 'var(--accent)' },
+            { label: 'ROC-AUC',  val: d.auc, fmt: v => v.toFixed(4),              color: 'var(--accent)' },
           ].map(m =>
-            e('div', { key: m.label, style: { marginBottom: 12 } },
-              e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 5 } },
-                e('span', { style: { fontSize: 12, color: 'var(--t2)' } }, m.label),
-                e('span', { style: { fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, color: m.color } }, m.fmt(m.val))
+            e('div', { key: m.label, style: { marginBottom: 14 } },
+              e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 } },
+                e('span', { style: { fontSize: 13, color: 'var(--t1)', fontWeight: 500 } }, m.label),
+                e('span', { style: { fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: m.color } }, m.fmt(m.val))
               ),
-              e('div', { style: { height: 4, background: 'var(--surface3)', borderRadius: 2, overflow: 'hidden' } },
-                e('div', { style: { height: '100%', width: `${m.val * 100}%`, background: m.color, borderRadius: 2, transition: 'width .8s ease' } })
+              e('div', { style: { height: 6, background: 'var(--surface3)', borderRadius: 3, overflow: 'hidden' } },
+                e('div', { style: { height: '100%', width: `${m.val * 100}%`, background: m.color, borderRadius: 3, transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' } })
               )
             )
           ),
@@ -504,7 +574,7 @@ function ModelAuditTab({ d }) {
           ].map(m =>
             e('div', { key: m.label, className: 'mrow' },
               e('span', { className: 'mrow-name' }, m.label),
-              e('span', { className: 'mrow-val', style: { color: m.bad(m.val) ? 'var(--danger)' : 'var(--ok)', fontWeight: 500 } }, m.fmt(m.val)),
+              e('span', { className: 'mrow-val', style: { color: m.bad(m.val) ? 'var(--danger)' : 'var(--ok)', fontWeight: 600 } }, m.fmt(m.val)),
               e(Badge, { label: m.bad(m.val) ? 'Fail' : 'Pass', type: m.bad(m.val) ? 'fail' : 'pass' })
             )
           )
@@ -519,7 +589,10 @@ function ModelAuditTab({ d }) {
           e('div', { className: 'section-label' }, 'Features driving predictions — ⚑ protected attribute'),
           e('div', { className: 'shap-list' },
             d.shap.map((s, i) => {
-              const pct = (s.v / maxShap) * 100;
+              const [w, setW] = useState(0);
+              const targetPct = (s.v / maxShap) * 100;
+              useEffect(() => { const t = setTimeout(() => setW(targetPct), 100 + (i * 50)); return () => clearTimeout(t); }, [targetPct, i]);
+              
               return e('div', { key: s.f, className: 'shap-row' },
                 e('span', { className: 'shap-rank' }, i + 1),
                 e('span', { className: `shap-feat ${s.p ? 'protected' : 'regular'}` }, (s.p ? '⚑ ' : '') + s.f),
@@ -527,15 +600,15 @@ function ModelAuditTab({ d }) {
                   e('div', {
                     className: 'shap-bar-fill',
                     style: {
-                      width: `${pct}%`,
+                      width: `${w}%`,
                       background: s.p
                         ? 'var(--danger)'
                         : i < 3
                         ? 'var(--accent)'
-                        : 'var(--surface5)'
+                        : 'var(--surface4)'
                     }
                   },
-                    pct > 28 && e('span', { className: 'shap-inner-val' }, s.v.toFixed(3))
+                    w > 28 && e('span', { className: 'shap-inner-val' }, s.v.toFixed(3))
                   )
                 ),
                 e('span', { className: 'shap-num' }, s.v.toFixed(3))
@@ -549,10 +622,10 @@ function ModelAuditTab({ d }) {
 }
 
 function MitigationTab({ d }) {
-  return e('div', null,
-    e('div', { style: { marginBottom: 16 } },
-      e('h2', { style: { fontSize: 14, fontWeight: 500, marginBottom: 3, color: 'var(--t1)', letterSpacing: '-0.2px' } }, 'Mitigation strategies'),
-      e('p', { style: { fontSize: 12, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } }, 'Three complementary strategies applied before, during, and after training')
+  return e('div', { className: 'fade-enter' },
+    e('div', { style: { marginBottom: 20 } },
+      e('h2', { style: { fontSize: 20, fontWeight: 600, marginBottom: 4, color: 'var(--t1)', letterSpacing: '-0.4px' } }, 'Mitigation Engine'),
+      e('p', { style: { fontSize: 13, color: 'var(--t3)' } }, 'Automated application of three algorithmic fairness strategies: before, during, and after training.')
     ),
     d.mit.map((m, i) =>
       e('div', { key: i, className: `mit-item ${m.best ? 'best' : ''}` },
@@ -560,15 +633,15 @@ function MitigationTab({ d }) {
         e('div', { className: 'mit-info' },
           e('div', { className: 'mit-name' },
             m.n,
-            m.best && e(Badge, { label: 'Best result', type: 'accent' })
+            m.best && e(Badge, { label: 'Optimal Strategy', type: 'accent' })
           ),
           e('div', { className: 'mit-desc' }, m.d),
           e('div', { className: 'mit-progress-row' },
-            e('div', { className: 'mit-progress-label' }, 'Score after:'),
-            e('div', { style: { flex: 1, height: 4, background: 'var(--surface3)', borderRadius: 2, overflow: 'hidden', margin: '0 8px' } },
-              e('div', { style: { height: '100%', width: `${m.after}%`, background: m.best ? 'var(--accent)' : 'var(--surface5)', borderRadius: 2, transition: 'width .8s ease' } })
+            e('div', { className: 'mit-progress-label' }, 'Score after mitigation:'),
+            e('div', { style: { flex: 1, height: 8, background: 'var(--surface3)', borderRadius: 4, overflow: 'hidden', margin: '0 12px' } },
+              e('div', { style: { height: '100%', width: `${m.after}%`, background: m.best ? 'var(--accent)' : 'var(--surface4)', borderRadius: 4, transition: 'width 1.2s cubic-bezier(0.16, 1, 0.3, 1)' } })
             ),
-            e('div', { className: 'mit-progress-label' }, m.after + '/100')
+            e('div', { className: 'mit-progress-label' }, m.after + ' / 100')
           )
         ),
         e('div', { className: 'mit-score-block' },
@@ -580,8 +653,8 @@ function MitigationTab({ d }) {
         )
       )
     ),
-    e('div', { className: 'card', style: { marginTop: 8 } },
-      e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'How each strategy works')),
+    e('div', { className: 'card', style: { marginTop: 16 } },
+      e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'How the algorithms work')),
       e('div', { className: 'card-body' },
         e('div', { className: 'grid-3' },
           [
@@ -589,10 +662,10 @@ function MitigationTab({ d }) {
             { icon: '02', n: 'In-processing',   d: 'ExponentiatedGradient (Fairlearn) adds an EqualizedOdds constraint to the training objective, preventing the optimizer from trading group parity for accuracy.' },
             { icon: '03', n: 'Post-processing', d: 'After training, per-group decision thresholds are calibrated to equalize true positive rates across groups. No model retraining required.' },
           ].map(s =>
-            e('div', { key: s.n, style: { padding: 16, background: 'var(--surface2)', borderRadius: 'var(--r2)', border: '1px solid var(--line)' } },
-              e('div', { style: { fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', marginBottom: 8, letterSpacing: 1 } }, s.icon),
-              e('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 6, color: 'var(--t1)', letterSpacing: '-0.1px' } }, s.n),
-              e('div', { style: { fontSize: 11, color: 'var(--t3)', lineHeight: 1.65 } }, s.d),
+            e('div', { key: s.n, style: { padding: 20, background: 'var(--surface2)', borderRadius: 'var(--r2)', border: '1px solid var(--line)' } },
+              e('div', { style: { fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--t4)', marginBottom: 10, letterSpacing: 1, fontWeight: 600 } }, s.icon),
+              e('div', { style: { fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--t1)', letterSpacing: '-0.2px' } }, s.n),
+              e('div', { style: { fontSize: 13, color: 'var(--t3)', lineHeight: 1.6 } }, s.d),
             )
           )
         )
@@ -602,17 +675,17 @@ function MitigationTab({ d }) {
 }
 
 function ReportTab({ d, ds, sel }) {
-  return e('div', null,
-    e('div', { style: { marginBottom: 16 } },
-      e('h2', { style: { fontSize: 14, fontWeight: 500, marginBottom: 3, color: 'var(--t1)', letterSpacing: '-0.2px' } }, 'Audit report'),
-      e('p', { style: { fontSize: 12, color: 'var(--t3)', fontFamily: 'var(--font-mono)' } }, 'Compliance-ready PDF and machine-readable JSON reports')
+  return e('div', { className: 'fade-enter' },
+    e('div', { style: { marginBottom: 20 } },
+      e('h2', { style: { fontSize: 20, fontWeight: 600, marginBottom: 4, color: 'var(--t1)', letterSpacing: '-0.4px' } }, 'Generate Reports'),
+      e('p', { style: { fontSize: 13, color: 'var(--t3)' } }, 'Export compliance-ready PDF documentation and machine-readable JSON data.')
     ),
     e('div', { className: 'grid-2' },
       e('div', { className: 'card' },
         e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Report summary')),
         e('div', { className: 'card-body' },
           e('div', { className: 'section-label' }, 'Dataset metadata'),
-          e('div', { className: 'info-grid', style: { marginBottom: 16 } },
+          e('div', { className: 'info-grid', style: { marginBottom: 24 } },
             [
               { k: 'Dataset',  v: ds.name },       { k: 'Domain', v: ds.domain },
               { k: 'Rows',     v: ds.rows },        { k: 'Protected', v: ds.protected },
@@ -624,8 +697,8 @@ function ReportTab({ d, ds, sel }) {
               )
             )
           ),
-          e('div', { className: 'section-label' }, 'Verdict'),
-          e('div', { style: { display: 'flex', gap: 8 } },
+          e('div', { className: 'section-label' }, 'Final Verdict'),
+          e('div', { style: { display: 'flex', gap: 12 } },
             [
               { lbl: 'Data bias',  score: d.dataScore,  sev: d.dataSev },
               { lbl: 'Model bias', score: d.modelScore, sev: d.modelSev },
@@ -640,31 +713,31 @@ function ReportTab({ d, ds, sel }) {
         )
       ),
       e('div', { className: 'card' },
-        e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Download reports')),
+        e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Download Center')),
         e('div', { className: 'card-body' },
           e('a', { href: `${API}/report/${sel}/pdf`, target: '_blank', className: 'report-dl-item' },
             e('div', { className: 'report-dl-icon' }, '↓'),
-            e('div', null,
-              e('div', { className: 'report-dl-name' }, 'PDF audit report'),
-              e('div', { className: 'report-dl-desc' }, 'Compliance report · full metrics, charts & recommendations'),
+            e('div', { style: { flex: 1 } },
+              e('div', { className: 'report-dl-name' }, 'PDF Audit Report'),
+              e('div', { className: 'report-dl-desc' }, 'Full metrics, charts & compliance recommendations'),
             ),
             e('span', { className: 'tag' }, 'PDF')
           ),
           e('a', { href: `${API}/report/${sel}/json`, target: '_blank', className: 'report-dl-item' },
             e('div', { className: 'report-dl-icon' }, '{}'),
-            e('div', null,
-              e('div', { className: 'report-dl-name' }, 'JSON audit report'),
-              e('div', { className: 'report-dl-desc' }, 'Machine-readable audit data for CI/CD integration'),
+            e('div', { style: { flex: 1 } },
+              e('div', { className: 'report-dl-name' }, 'JSON Audit Data'),
+              e('div', { className: 'report-dl-desc' }, 'Machine-readable output for CI/CD integration'),
             ),
             e('span', { className: 'tag' }, 'JSON')
           ),
           e('a', { href: `${API}/audit/full/${sel}`, target: '_blank', className: 'report-dl-item' },
             e('div', { className: 'report-dl-icon' }, '▶'),
-            e('div', null,
-              e('div', { className: 'report-dl-name' }, 'Re-run full audit'),
-              e('div', { className: 'report-dl-desc' }, 'Trigger complete pipeline via API'),
+            e('div', { style: { flex: 1 } },
+              e('div', { className: 'report-dl-name' }, 'Re-run Pipeline via API'),
+              e('div', { className: 'report-dl-desc' }, 'Trigger full audit and mitigation via REST API'),
             ),
-            e('span', { className: 'tag' }, 'API')
+            e('span', { className: 'tag' }, 'POST')
           ),
         )
       )
@@ -683,10 +756,10 @@ function AuditPage({ initDs }) {
 
   const tabs = [
     { id: 'overview',   label: 'Overview' },
-    { id: 'dataaudit',  label: 'Data audit' },
-    { id: 'modelaudit', label: 'Model audit' },
+    { id: 'dataaudit',  label: 'Data Audit' },
+    { id: 'modelaudit', label: 'Model Audit' },
     { id: 'mitigation', label: 'Mitigation' },
-    { id: 'report',     label: 'Report' },
+    { id: 'report',     label: 'Export' },
   ];
 
   return e('div', { className: 'page' },
@@ -706,20 +779,25 @@ function AuditPage({ initDs }) {
         )
       )
     ),
-    e('div', { className: 'tab-bar' },
-      tabs.map(t =>
-        e('button', {
-          key: t.id,
-          className: `tab ${tab === t.id ? 'active' : ''}`,
-          onClick: () => setTab(t.id)
-        }, t.label)
+    e('div', { className: 'card mb-24', style: { padding: '4px 20px', borderRadius: 'var(--r3)' } },
+      e('div', { className: 'tab-bar' },
+        tabs.map(t =>
+          e('button', {
+            key: t.id,
+            className: `tab ${tab === t.id ? 'active' : ''}`,
+            onClick: () => setTab(t.id)
+          }, t.label)
+        )
       )
     ),
-    tab === 'overview'   && e(OverviewTab,   { key: sel + 'ov', d, ds }),
-    tab === 'dataaudit'  && e(DataAuditTab,  { key: sel + 'da', d }),
-    tab === 'modelaudit' && e(ModelAuditTab, { key: sel + 'ma', d }),
-    tab === 'mitigation' && e(MitigationTab, { key: sel + 'mi', d }),
-    tab === 'report'     && e(ReportTab,     { key: sel + 'rp', d, ds, sel }),
+    // Use a wrapper to force re-mount and trigger animations
+    e('div', { key: sel + tab },
+      tab === 'overview'   && e(OverviewTab,   { d, ds }),
+      tab === 'dataaudit'  && e(DataAuditTab,  { d }),
+      tab === 'modelaudit' && e(ModelAuditTab, { d }),
+      tab === 'mitigation' && e(MitigationTab, { d }),
+      tab === 'report'     && e(ReportTab,     { d, ds, sel }),
+    )
   );
 }
 
@@ -754,8 +832,12 @@ function UploadPage({ addToast }) {
       setResult(data);
       addToast('Audit complete.', 'ok');
     } catch {
-      setResult({ status: 'ok', n_rows: 1250, data_bias_score: 68, data_severity: 'MEDIUM', model_bias_score: 45, model_severity: 'MEDIUM', tpr_gap: 0.112, fpr_gap: 0.033 });
-      addToast('API offline — showing demo result', 'info');
+      setTimeout(() => {
+        setResult({ status: 'ok', n_rows: 1250, data_bias_score: 68, data_severity: 'MEDIUM', model_bias_score: 45, model_severity: 'MEDIUM', tpr_gap: 0.112, fpr_gap: 0.033 });
+        addToast('API offline — showing demo result', 'info');
+        setLoading(false);
+      }, 1500); // Fake delay for demo
+      return;
     }
     setLoading(false);
   };
@@ -763,51 +845,56 @@ function UploadPage({ addToast }) {
   return e('div', { className: 'page' },
     loading && e('div', { className: 'overlay' },
       e(Spinner),
-      e('div', { className: 'overlay-label' }, 'Running bias audit'),
-      e('div', { className: 'overlay-sub' }, 'data audit → model audit → mitigation → report')
+      e('div', { className: 'overlay-label' }, 'Processing Dataset'),
+      e('div', { className: 'overlay-sub' }, 'Running statistical analysis & model training...')
     ),
-    e('div', { className: 'hero mb-20', style: { padding: '24px 28px' } },
-      e('div', { className: 'hero-eyebrow' }, 'Custom dataset'),
-      e('h2', { className: 'hero-title', style: { fontSize: 20 } }, 'Upload your own CSV for a full bias audit'),
-      e('p', { className: 'hero-desc', style: { marginBottom: 0 } },
-        'FairLens runs the complete pipeline: statistical data audit, model training, SHAP analysis, three mitigation strategies, and PDF + JSON reports.'
+    e('div', { className: 'hero mb-24' },
+      e('div', { className: 'hero-orb orb-1' }),
+      e('div', { className: 'hero-content' },
+        e('div', { className: 'hero-eyebrow' }, 'Custom Audit'),
+        e('h2', { className: 'hero-title', style: { fontSize: 28 } }, 'Upload your own dataset'),
+        e('p', { className: 'hero-desc', style: { marginBottom: 0 } },
+          'FairLens will automatically detect biases, train a baseline model, apply three mitigation strategies, and generate compliance reports.'
+        )
       )
     ),
     e('div', { className: 'grid-2' },
-      e('div', null,
-        e('div', {
-          className: `drop-zone mb-16 ${drag ? 'drag-over' : ''}`,
-          onDragOver:  ev => { ev.preventDefault(); setDrag(true); },
-          onDragLeave: () => setDrag(false),
-          onDrop:      ev => { ev.preventDefault(); setDrag(false); handleFile(ev.dataTransfer.files[0]); },
-          onClick:     () => fileRef.current.click(),
-        },
-          e('input', { type: 'file', ref: fileRef, accept: '.csv', style: { display: 'none' }, onChange: ev => handleFile(ev.target.files[0]) }),
-          e('span', { className: 'drop-icon' }, file ? '✓' : '↑'),
-          e('div', { className: 'drop-title' }, file ? file.name : 'Drop CSV file here'),
-          e('div', { className: 'drop-sub' }, file ? `${(file.size / 1024).toFixed(1)} KB — ready to audit` : 'or click to browse · CSV files only')
-        ),
-        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-          e('div', null,
-            e('label', { className: 'field-label' }, 'Target column (outcome)'),
-            e('input', { type: 'text', className: 'field-input', placeholder: 'e.g. income, hired, two_year_recid', value: target, onChange: ev => setTarget(ev.target.value) })
+      e('div', { className: 'card' },
+        e('div', { className: 'card-body', style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+          e('div', {
+            className: `drop-zone ${drag ? 'drag-over' : ''}`,
+            onDragOver:  ev => { ev.preventDefault(); setDrag(true); },
+            onDragLeave: () => setDrag(false),
+            onDrop:      ev => { ev.preventDefault(); setDrag(false); handleFile(ev.dataTransfer.files[0]); },
+            onClick:     () => fileRef.current.click(),
+          },
+            e('input', { type: 'file', ref: fileRef, accept: '.csv', style: { display: 'none' }, onChange: ev => handleFile(ev.target.files[0]) }),
+            e('span', { className: 'drop-icon' }, file ? '✓' : '↑'),
+            e('div', { className: 'drop-title' }, file ? file.name : 'Drop CSV file here'),
+            e('div', { className: 'drop-sub' }, file ? `${(file.size / 1024).toFixed(1)} KB — ready to audit` : 'or click to browse · CSV files only')
           ),
-          e('div', null,
-            e('label', { className: 'field-label' }, 'Protected attribute column'),
-            e('input', { type: 'text', className: 'field-input', placeholder: 'e.g. gender, race, age_group', value: prot, onChange: ev => setProt(ev.target.value) })
+          e('div', { className: 'grid-2', style: { gap: 16 } },
+            e('div', null,
+              e('label', { className: 'field-label' }, 'Target Column'),
+              e('input', { type: 'text', className: 'field-input', placeholder: 'e.g. income', value: target, onChange: ev => setTarget(ev.target.value) })
+            ),
+            e('div', null,
+              e('label', { className: 'field-label' }, 'Protected Column'),
+              e('input', { type: 'text', className: 'field-input', placeholder: 'e.g. gender', value: prot, onChange: ev => setProt(ev.target.value) })
+            )
           ),
           e('button', {
             className: 'btn btn-primary',
-            style: { width: '100%', justifyContent: 'center', padding: '10px' },
+            style: { width: '100%', justifyContent: 'center', padding: '14px', fontSize: 14 },
             onClick: submit,
             disabled: loading
-          }, loading ? 'Running audit…' : 'Run full bias audit')
+          }, 'Run Full Bias Audit')
         )
       ),
       result
-        ? e('div', { className: 'card page' },
+        ? e('div', { className: 'card fade-enter accent-border', style: { background: 'var(--surface2)' } },
             e('div', { className: 'card-head' },
-              e('span', { className: 'card-title' }, 'Audit complete'),
+              e('span', { className: 'card-title' }, 'Audit Results'),
               e(Badge, { label: result.data_severity || 'MEDIUM', type: (result.data_severity || 'MEDIUM').toLowerCase().replace('medium','med') })
             ),
             e('div', { className: 'card-body' },
@@ -824,11 +911,11 @@ function UploadPage({ addToast }) {
                   )
                 )
               ),
-              e('div', { style: { padding: '11px 13px', background: 'var(--ok-dim)', borderRadius: 'var(--r)', border: '1px solid var(--ok-border)', marginBottom: 12 } },
-                e('div', { style: { fontWeight: 500, fontSize: 12, color: 'var(--ok)', marginBottom: 2 } }, 'Reports generated'),
-                e('div', { style: { fontSize: 11, color: 'var(--t2)' } }, 'PDF and JSON reports are available via the API report endpoints.')
+              e('div', { style: { padding: '16px 20px', background: 'var(--ok-dim)', borderRadius: 'var(--r2)', border: '1px solid var(--ok-border)', margin: '16px 0' } },
+                e('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--ok)', marginBottom: 6 } }, 'Reports Generated Successfully'),
+                e('div', { style: { fontSize: 13, color: 'var(--t2)', lineHeight: 1.5 } }, 'PDF and JSON reports are now available via the API report endpoints for integration into your CI/CD pipelines.')
               ),
-              e('a', { href: `${API}/docs`, target: '_blank', className: 'btn btn-sm btn-ghost' }, 'View API docs ↗')
+              e('a', { href: `${API}/docs`, target: '_blank', className: 'btn btn-ghost' }, 'View API Documentation ↗')
             )
           )
         : e('div', { className: 'card' },
@@ -841,11 +928,11 @@ function UploadPage({ addToast }) {
                 { icon: '⊞', title: 'Equalized odds',                desc: 'Equal True Positive Rate and False Positive Rate across groups via SHAP and model audit' },
                 { icon: '⊠', title: 'Three mitigation strategies',   desc: 'Pre-, in-, and post-processing fixes with before/after bias score comparison' },
               ].map(c =>
-                e('div', { key: c.title, style: { display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--line)' } },
-                  e('span', { style: { fontSize: 13, color: 'var(--accent-light)', flexShrink: 0, fontFamily: 'var(--font-mono)' } }, c.icon),
+                e('div', { key: c.title, style: { display: 'flex', gap: 16, padding: '14px 0', borderBottom: '1px solid var(--line)' } },
+                  e('span', { style: { fontSize: 16, color: 'var(--accent)', flexShrink: 0, fontFamily: 'var(--font-mono)' } }, c.icon),
                   e('div', null,
-                    e('div', { style: { fontWeight: 500, fontSize: 12, marginBottom: 2, color: 'var(--t1)' } }, c.title),
-                    e('div', { style: { fontSize: 11, color: 'var(--t3)', lineHeight: 1.6 } }, c.desc)
+                    e('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4, color: 'var(--t1)' } }, c.title),
+                    e('div', { style: { fontSize: 13, color: 'var(--t3)', lineHeight: 1.6 } }, c.desc)
                   )
                 )
               )
@@ -860,14 +947,17 @@ function UploadPage({ addToast }) {
 ═══════════════════════════════════════════ */
 function AboutPage() {
   return e('div', { className: 'page' },
-    e('div', { className: 'hero mb-20', style: { padding: '24px 28px' } },
-      e('div', { className: 'hero-eyebrow' }, 'Documentation'),
-      e('h2', { className: 'hero-title', style: { fontSize: 20 } }, 'About FairLens'),
-      e('p', { className: 'hero-desc', style: { marginBottom: 0 } },
-        'End-to-end AI bias detection and mitigation built for the Hack2Skill Unbiased AI Decision challenge. Validates across 5 real-world fairness benchmarks using IBM AIF360, Microsoft Fairlearn, and SHAP.'
+    e('div', { className: 'hero mb-24' },
+      e('div', { className: 'hero-orb orb-2' }),
+      e('div', { className: 'hero-content' },
+        e('div', { className: 'hero-eyebrow' }, 'Documentation'),
+        e('h2', { className: 'hero-title', style: { fontSize: 28 } }, 'About FairLens System'),
+        e('p', { className: 'hero-desc', style: { marginBottom: 0 } },
+          'End-to-end AI bias detection and mitigation built for the Hack2Skill Unbiased AI Decision challenge. Validates across 5 real-world fairness benchmarks using IBM AIF360, Microsoft Fairlearn, and SHAP.'
+        )
       )
     ),
-    e('div', { className: 'grid-2 mb-16' },
+    e('div', { className: 'grid-2 mb-20' },
       e('div', { className: 'card' },
         e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Fairness metrics reference')),
         e('div', { className: 'tbl-wrap' },
@@ -883,7 +973,7 @@ function AboutPage() {
                 { m: 'SHAP feature importance',  t: 'Protected rank ≤ 5 = flag', s: 'Lundberg & Lee, 2017' },
               ].map(r =>
                 e('tr', { key: r.m },
-                  e('td', { style: { fontWeight: 500 } }, r.m),
+                  e('td', { style: { fontWeight: 600 } }, r.m),
                   e('td', { className: 'mono' }, r.t),
                   e('td', { className: 'mono' }, r.s)
                 )
@@ -893,7 +983,7 @@ function AboutPage() {
         )
       ),
       e('div', { className: 'card' },
-        e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Tech stack')),
+        e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Technology Stack')),
         e('div', { className: 'card-body' },
           [
             { n: 'IBM AIF360',          r: 'Fairness metrics + Reweighing mitigation' },
@@ -913,7 +1003,7 @@ function AboutPage() {
       )
     ),
     e('div', { className: 'card' },
-      e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'API reference')),
+      e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'REST API Reference')),
       e('div', { className: 'card-body', style: { padding: 0 } },
         e('div', { className: 'tbl-wrap' },
           e('table', null,
@@ -932,8 +1022,8 @@ function AboutPage() {
               ].map(([m, ep, desc]) =>
                 e('tr', { key: ep },
                   e('td', null, e('span', { className: `method-badge method-${m.toLowerCase()}` }, m)),
-                  e('td', { className: 'mono' }, ep),
-                  e('td', { style: { fontSize: 12, color: 'var(--t3)' } }, desc)
+                  e('td', { className: 'mono', style: { color: 'var(--accent)', fontWeight: 600 } }, ep),
+                  e('td', { style: { fontSize: 13, color: 'var(--t3)' } }, desc)
                 )
               )
             )
@@ -967,82 +1057,91 @@ function App() {
 
   const navLinks = [
     { id: 'dashboard', label: 'Dashboard',      icon: '◈' },
-    { id: 'audit',     label: 'Audit explorer', icon: '◉' },
-    { id: 'upload',    label: 'Upload dataset',  icon: '↑' },
+    { id: 'audit',     label: 'Audit Explorer', icon: '◉' },
+    { id: 'upload',    label: 'Custom Dataset',  icon: '↑' },
     { id: 'about',     label: 'Docs & API',      icon: '?' },
   ];
 
   const pageTitle = navLinks.find(n => n.id === page)?.label || 'Dashboard';
 
-  return e('div', { className: 'app' },
-
-    // SIDEBAR
-    e('nav', { className: 'sidebar' },
-      e('div', { className: 'sidebar-brand' },
-        e('div', { className: 'brand-mark' }, 'FL'),
-        e('div', null,
-          e('div', { className: 'brand-name' }, e('em', null, 'Fair'), 'Lens'),
-          e('div', { className: 'brand-tagline' }, 'Bias Audit Platform'),
-        )
-      ),
-      e('div', { className: 'nav-section' },
-        e('div', { className: 'nav-section-label' }, 'Navigation'),
-        navLinks.map(n =>
-          e('button', {
-            key: n.id,
-            className: `nav-item ${page === n.id ? 'active' : ''}`,
-            onClick: () => navigate(n.id)
-          },
-            e('span', { className: 'nav-icon' }, n.icon),
-            n.label
-          )
-        )
-      ),
-      e('div', { className: 'nav-section' },
-        e('div', { className: 'nav-section-label' }, 'Datasets'),
-        DATASETS.map(d =>
-          e('button', {
-            key: d.id,
-            className: `nav-ds-item ${page === 'audit' && auditDs === d.id ? 'active' : ''}`,
-            onClick: () => navigate('audit', d.id)
-          },
-            e('span', { className: 'nav-ds-dot', style: { background: sevColor(d.severity) } }),
-            e('span', { className: 'nav-ds-name' }, d.name),
-            e('span', { className: 'nav-ds-score' }, d.dataBias)
-          )
-        )
-      ),
-      e('div', { className: 'sidebar-footer' },
-        e('div', { className: 'sidebar-version' }, 'v1.0 · 2026'),
-        e('div', { className: 'sidebar-status' },
-          e('span', { className: 'status-dot' }),
-          'live'
-        )
-      )
+  return e('div', { className: 'app-container' },
+    // Animated Mesh Background
+    e('div', { className: 'bg-mesh' },
+      e('div', { className: 'mesh-blob blob-1' }),
+      e('div', { className: 'mesh-blob blob-2' }),
+      e('div', { className: 'mesh-blob blob-3' })
     ),
-
-    // MAIN
-    e('div', { className: 'main' },
-      e('div', { className: 'topbar' },
-        e('div', { className: 'topbar-left' },
-          e('div', { className: 'topbar-breadcrumb' },
-            e('span', null, pageTitle),
-            page === 'audit' && e('span', { className: 'breadcrumb-sep' }, '/'),
-            page === 'audit' && e('span', { className: 'breadcrumb-sub' }, DATASETS.find(d => d.id === auditDs)?.name),
-          ),
-          page === 'audit' && e('span', { className: 'topbar-pill' }, DATASETS.find(d => d.id === auditDs)?.domain)
+    
+    // Application Shell
+    e('div', { className: 'app' },
+      // SIDEBAR
+      e('nav', { className: 'sidebar' },
+        e('div', { className: 'sidebar-brand' },
+          e('div', { className: 'brand-mark' }, 'FL'),
+          e('div', null,
+            e('div', { className: 'brand-name' }, e('em', null, 'Fair'), 'Lens'),
+            e('div', { className: 'brand-tagline' }, 'AI Bias Platform'),
+          )
         ),
-        e('div', { className: 'topbar-right' },
-          e('a', { href: 'https://github.com', target: '_blank', className: 'btn btn-ghost btn-sm' }, 'GitHub ↗'),
-          e('a', { href: `${API}/docs`, target: '_blank', className: 'btn btn-sm' }, 'API docs'),
-          e('button', { className: 'btn btn-primary btn-sm', onClick: () => navigate('upload') }, '+ New audit')
+        e('div', { className: 'nav-section' },
+          e('div', { className: 'nav-section-label' }, 'Platform'),
+          navLinks.map(n =>
+            e('button', {
+              key: n.id,
+              className: `nav-item ${page === n.id ? 'active' : ''}`,
+              onClick: () => navigate(n.id)
+            },
+              e('span', { className: 'nav-icon' }, n.icon),
+              n.label
+            )
+          )
+        ),
+        e('div', { className: 'nav-section' },
+          e('div', { className: 'nav-section-label' }, 'Analyzed Datasets'),
+          DATASETS.map(d =>
+            e('button', {
+              key: d.id,
+              className: `nav-ds-item ${page === 'audit' && auditDs === d.id ? 'active' : ''}`,
+              onClick: () => navigate('audit', d.id)
+            },
+              e('span', { className: 'nav-ds-dot', style: { background: sevColor(d.severity) } }),
+              e('span', { className: 'nav-ds-name' }, d.name),
+              e('span', { className: 'nav-ds-score' }, d.dataBias)
+            )
+          )
+        ),
+        e('div', { className: 'sidebar-footer' },
+          e('div', { className: 'sidebar-version' }, 'Hack2Skill · 2026'),
+          e('div', { className: 'sidebar-status' },
+            e('span', { className: 'status-dot' }),
+            'API Online'
+          )
         )
       ),
-      e('div', { className: 'content' },
-        page === 'dashboard' && e(DashboardPage, { onNavigate: navigate }),
-        page === 'audit'     && e(AuditPage,     { key: auditDs, initDs: auditDs }),
-        page === 'upload'    && e(UploadPage,     { addToast }),
-        page === 'about'     && e(AboutPage,      null),
+
+      // MAIN
+      e('div', { className: 'main' },
+        e('div', { className: 'topbar' },
+          e('div', { className: 'topbar-left' },
+            e('div', { className: 'topbar-breadcrumb' },
+              e('span', null, pageTitle),
+              page === 'audit' && e('span', { className: 'breadcrumb-sep' }, '/'),
+              page === 'audit' && e('span', { className: 'breadcrumb-sub' }, DATASETS.find(d => d.id === auditDs)?.name),
+            ),
+            page === 'audit' && e('span', { className: 'topbar-pill' }, DATASETS.find(d => d.id === auditDs)?.domain)
+          ),
+          e('div', { className: 'topbar-right' },
+            e('a', { href: 'https://github.com', target: '_blank', className: 'btn btn-ghost btn-sm' }, 'GitHub ↗'),
+            e('a', { href: `${API}/docs`, target: '_blank', className: 'btn btn-sm btn-ghost' }, 'API Documentation'),
+            e('button', { className: 'btn btn-primary btn-sm', onClick: () => navigate('upload') }, '+ New Audit')
+          )
+        ),
+        e('div', { className: 'content' },
+          page === 'dashboard' && e(DashboardPage, { onNavigate: navigate }),
+          page === 'audit'     && e(AuditPage,     { key: auditDs, initDs: auditDs }),
+          page === 'upload'    && e(UploadPage,     { addToast }),
+          page === 'about'     && e(AboutPage,      null),
+        )
       )
     ),
 
