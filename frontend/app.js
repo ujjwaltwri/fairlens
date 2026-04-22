@@ -1,6 +1,5 @@
 /**
  * FairLens — AI Bias Detection & Mitigation Platform
- * app.js — React 18 (createElement, no build step required)
  * Theme: Precision Instrument — DM Serif Display + DM Sans + Spline Sans Mono
  */
 (function () {
