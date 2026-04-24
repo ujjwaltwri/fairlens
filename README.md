@@ -297,6 +297,11 @@ From our validation run across all 5 datasets:
 
 ## 👥 Team
 
+Ujjwal Tiwari
+Nandini Sharma
+Harsh Raj
+Shubham Thalor
+
 Built for **Hack2Skill — Unbiased AI Decision** challenge.
 
 ---
