@@ -17,7 +17,6 @@ Usage:
   python run_all.py --model rf         # Use RandomForest instead of LogisticRegression
   python run_all.py --skip-report      # Skip PDF generation
   python run_all.py --quick            # Run only Adult dataset (fastest demo)
-  python run_all.py --no-gemini        # Skip Gemini narrative/recommendation
 """
 
 import sys
