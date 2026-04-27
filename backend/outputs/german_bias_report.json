@@ -1,9 +1,10 @@
 {
   "report_metadata": {
-    "generated_at": "2026-04-21T12:36:14.844588",
+    "generated_at": "2026-04-28T03:11:09.392138",
     "dataset_name": "german",
     "dataset_label": "German Credit (Statlog)",
-    "report_version": "1.0"
+    "report_version": "2.0",
+    "gemini_enhanced": false
   },
   "data_audit": {
     "n_rows": 1000,
@@ -105,5 +106,9 @@
     "recommended_actions": [
       "LOW RISK: Monitor for drift, re-audit quarterly"
     ]
+  },
+  "gemini_analysis": {
+    "narrative": null,
+    "recommendation": null
   }
 }

@@ -318,7 +318,13 @@ def get_result(job_id: str):
         "created_at":             result.get("created_at"),
     }
 
-
+@app.get("/results/dataset/{name}")
+def get_result_by_dataset(name: str):
+    """Fetch the full audit result using the dataset name for the frontend explorer."""
+    result = db_ops.get_latest_result_for_dataset(name)
+    if not result:
+        raise HTTPException(404, f"No result found for '{name}'")
+    return get_result(result["job_id"])
 # ─────────────────────────────────────────────────────────────
 # Routes — audit (sync, lightweight)
 # ─────────────────────────────────────────────────────────────
