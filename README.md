@@ -3,10 +3,20 @@
 > **AI Bias Detection & Mitigation Platform**  
 > Detect, measure, and fix hidden discrimination in machine learning models — before they impact real people.
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Hack2Skill](https://img.shields.io/badge/Hack2Skill-Unbiased%20AI%20Decision-6C47FF?style=flat)](https://hack2skill.com)
+
+---
+
+## 🌐 Live Demo
+
+| Service  | URL |
+|---|---|
+| **Frontend** | https://fairlens-khaki.vercel.app |
+| **Backend API** | https://fairlens-api-747288447158.asia-south1.run.app |
+| **API Docs** | https://fairlens-api-747288447158.asia-south1.run.app/docs |
 
 ---
 
@@ -74,11 +84,20 @@ FairLens has been validated across 5 real-world fairness benchmarks:
 ```bash
 git clone https://github.com/YOUR_USERNAME/fairlens.git
 cd fairlens
-
 pip install -r requirements.txt
 ```
 
-### 2. Run Full Pipeline (All 5 Datasets)
+### 2. Set Environment Variables
+
+Create a `.env` file in the `backend/` directory:
+
+```bash
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-supabase-anon-key
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+### 3. Run Full Pipeline (All 5 Datasets)
 
 ```bash
 python run_all.py
@@ -94,24 +113,21 @@ python run_all.py --quick
 python run_all.py --model rf
 ```
 
-### 3. Start the API Server
+### 4. Start the API Server
 
 ```bash
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn api:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-Visit: [http://localhost:8000](http://localhost:8000)  
-Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+Visit: [http://localhost:8080](http://localhost:8080)  
+Docs: [http://localhost:8080/docs](http://localhost:8080/docs)
 
-### 4. Start the Frontend
+### 5. Open the Frontend
 
 ```bash
 cd frontend
-npm install
-npm run dev
+open index.html   # or just open in any browser — no build step needed
 ```
-
-Visit: [http://localhost:5173](http://localhost:5173)
 
 ---
 
@@ -122,33 +138,36 @@ fairlens/
 ├── README.md
 ├── requirements.txt
 │
-├── data_loader.py        # Load all 5 datasets (+ CSV upload)
-├── data_auditor.py       # Statistical bias analysis on raw data
-├── model_auditor.py      # Train models + SHAP + fairness metrics
-├── mitigation.py         # 3 bias mitigation strategies
-├── report_generator.py   # PDF + JSON audit report generation
-├── api.py                # FastAPI REST backend
-├── run_all.py            # Single entry point — full pipeline
+├── backend/
+│   ├── api.py                # FastAPI REST backend
+│   ├── data_loader.py        # Load all 5 datasets (+ CSV upload)
+│   ├── data_auditor.py       # Statistical bias analysis on raw data
+│   ├── data_validator.py     # CSV and dataframe validation
+│   ├── model_auditor.py      # Train models + SHAP + fairness metrics
+│   ├── mitigation.py         # 3 bias mitigation strategies
+│   ├── report_generator.py   # PDF + JSON audit report generation
+│   ├── database.py           # Supabase DB operations
+│   ├── storage.py            # Supabase Storage operations
+│   ├── gemini.py             # Gemini AI narrative + chat
+│   ├── run_all.py            # Single entry point — full pipeline
+│   └── Dockerfile
 │
-├── data/                 # Synthetic dataset files (fallback)
+├── data/                     # Synthetic dataset files (fallback)
 │   ├── adult_synthetic.csv
 │   ├── compas_synthetic.csv
 │   ├── german_synthetic.csv
 │   ├── utrecht_synthetic.csv
 │   └── diabetes130_synthetic.csv
 │
-├── outputs/              # Generated reports (gitignored)
+├── outputs/                  # Generated reports (gitignored)
 │   ├── adult_bias_report.pdf
 │   ├── adult_bias_report.json
 │   └── pipeline_summary.json
 │
-└── frontend/             # React dashboard
+└── frontend/                 # Vanilla JS + React CDN dashboard
     ├── index.html
-    ├── package.json
-    └── src/
-        ├── main.jsx
-        ├── App.jsx
-        └── components/
+    ├── app.js
+    └── styles.css
 ```
 
 ---
@@ -161,19 +180,26 @@ fairlens/
 | `GET` | `/datasets` | List all available datasets |
 | `POST` | `/audit/data/{name}` | Run statistical data audit |
 | `POST` | `/audit/model/{name}` | Train model + audit for bias |
-| `POST` | `/audit/full/{name}` | Full pipeline: audit + mitigate + report |
+| `POST` | `/audit/full/{name}` | Full pipeline: audit + mitigate + report (async) |
+| `GET` | `/jobs/{job_id}` | Poll background job status |
+| `GET` | `/results/{job_id}` | Get full audit result |
+| `GET` | `/results/dataset/{name}` | Get latest result for a dataset |
 | `GET` | `/report/{name}/json` | Download JSON audit report |
 | `GET` | `/report/{name}/pdf` | Download PDF audit report |
-| `GET` | `/results` | Get all cached audit results |
-| `POST` | `/audit/upload` | Upload custom CSV and audit it |
+| `POST` | `/audit/upload` | Upload custom CSV and audit it (async) |
+| `POST` | `/chat/{job_id}` | Ask Gemini about a completed audit |
+| `GET` | `/uploads` | List all uploaded CSVs |
 
 **Example:**
 ```bash
 # Run full audit on the Adult dataset
-curl -X POST http://localhost:8000/audit/full/adult
+curl -X POST https://fairlens-api-747288447158.asia-south1.run.app/audit/full/adult
+
+# Poll job status
+curl https://fairlens-api-747288447158.asia-south1.run.app/jobs/{job_id}
 
 # Upload your own CSV
-curl -X POST http://localhost:8000/audit/upload \
+curl -X POST https://fairlens-api-747288447158.asia-south1.run.app/audit/upload \
   -F "file=@mydata.csv" \
   -F "target_column=outcome" \
   -F "protected_column=gender"
@@ -226,6 +252,9 @@ scipy>=1.11
 matplotlib>=3.7
 seaborn>=0.13
 requests>=2.31
+slowapi>=0.1.9
+supabase>=2.0
+google-genai>=1.0
 ```
 
 Install all:
@@ -237,46 +266,49 @@ pip install -r requirements.txt
 
 ## ☁️ Deployment
 
-### Google Cloud Run (Recommended)
+### Backend — Google Cloud Run
+
+The backend is deployed on **Google Cloud Run** (project: `projectx-5807d`, region: `asia-south1`).
 
 ```bash
-# Build and deploy
+# 1. Set project
+gcloud config set project projectx-5807d
+
+# 2. Build and push image
+gcloud builds submit \
+  --tag asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest
+
+# 3. Deploy
 gcloud run deploy fairlens-api \
-  --source . \
+  --image asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest \
   --platform managed \
-  --region us-central1 \
+  --region asia-south1 \
   --allow-unauthenticated \
-  --memory 2Gi
+  --port 8080 \
+  --memory 2Gi \
+  --cpu 2 \
+  --timeout 300 \
+  --set-secrets="SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_KEY=SUPABASE_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest"
 ```
 
-### Render.com (Free tier)
+Secrets are stored in **Google Secret Manager** and injected at runtime — never baked into the image.
 
-1. Push to GitHub
-2. New Web Service → connect repo
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `uvicorn api:app --host 0.0.0.0 --port $PORT`
+### Frontend — Vercel
 
-### Docker
+The frontend is a static site (no build step) deployed on **Vercel**.
 
 ```bash
-docker build -t fairlens .
-docker run -p 8000:8000 fairlens
+cd frontend
+vercel --prod
 ```
 
----
+Live at: https://fairlens-khaki.vercel.app
 
-## 🧪 Run Tests
+### Docker (local)
 
 ```bash
-# Quick smoke test — Adult dataset only (~10s)
-python run_all.py --quick
-
-# Full pipeline — all datasets (~60s)
-python run_all.py
-
-# API only
-uvicorn api:app --port 8000
-curl http://localhost:8000/
+docker build -t fairlens-api .
+docker run --env-file .env -p 8080:8080 fairlens-api
 ```
 
 ---
@@ -297,10 +329,10 @@ From our validation run across all 5 datasets:
 
 ## 👥 Team
 
-Ujjwal Tiwari
-Nandini Sharma
-Harsh Raj
-Shubham Thalor
+- Ujjwal Tiwari
+- Nandini Sharma
+- Harsh Raj
+- Shubham Thalor
 
 Built for **Hack2Skill — Unbiased AI Decision** challenge.
 
@@ -319,3 +351,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 - [SHAP](https://shap.readthedocs.io) — model explainability
 - [ProPublica COMPAS Analysis](https://github.com/propublica/compas-analysis) — recidivism dataset
 - [UCI ML Repository](https://archive.ics.uci.edu) — Adult and German Credit datasets
+- [Google Cloud Run](https://cloud.google.com/run) — serverless backend hosting
+- [Vercel](https://vercel.com) — frontend hosting
+- [Supabase](https://supabase.com) — database and file storage
+- [Google Gemini](https://ai.google.dev) — AI-generated narratives and recommendations
