@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest', './backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - fairlens-api
+      - --image=asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest
+      - --platform=managed
+      - --region=asia-south1
+      - --allow-unauthenticated
+
+images:
+  - 'asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest'
