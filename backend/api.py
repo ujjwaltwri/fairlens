@@ -45,8 +45,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
-from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -71,7 +70,6 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path("./outputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 app = FastAPI(
     title="FairLens API",
     description="FairLens — AI Bias Detection & Mitigation Platform",
@@ -88,7 +86,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
 AVAILABLE_DATASETS = {
     "adult":       "UCI Adult (Census Income) — income prediction, gender + race bias",
     "compas":      "COMPAS Recidivism — criminal justice, racial bias",
@@ -318,6 +316,7 @@ def get_result(job_id: str):
         "created_at":             result.get("created_at"),
     }
 
+
 @app.get("/results/dataset/{name}")
 def get_result_by_dataset(name: str):
     """Fetch the full audit result using the dataset name for the frontend explorer."""
@@ -325,6 +324,8 @@ def get_result_by_dataset(name: str):
     if not result:
         raise HTTPException(404, f"No result found for '{name}'")
     return get_result(result["job_id"])
+
+
 # ─────────────────────────────────────────────────────────────
 # Routes — audit (sync, lightweight)
 # ─────────────────────────────────────────────────────────────
@@ -413,11 +414,6 @@ async def run_full_audit(
         "message":  "Pipeline started. Poll /jobs/{job_id} for status.",
     }
 
-@app.get("/app")
-@app.get("/ui")
-@app.get("/dashboard")
-async def serve_frontend():
-    return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 @app.post("/audit/upload")
 @limiter.limit(HEAVY_LIMIT)

@@ -7,7 +7,6 @@
 # Run locally (env vars from .env file):
 #   docker run --env-file .env -p 8080:8080 fairlens-api
 #
-# Cloud Run deployment is handled by .github/workflows/deploy.yml
 # Env vars (SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY) are injected
 # at runtime via Cloud Run secrets — never baked into the image.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -25,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
@@ -41,7 +41,7 @@ COPY --from=builder /install /usr/local
 
 WORKDIR /app
 
-# Copy all backend source files
+# Copy all backend source files (fixed — no hyperlink formatting)
 COPY --chown=appuser:appgroup \
     api.py \
     data_loader.py \

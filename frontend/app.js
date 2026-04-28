@@ -11,7 +11,7 @@ const e = React.createElement;
 /* ═══════════════════════════════
    CONSTANTS
 ═══════════════════════════════ */
-const API = 'http://localhost:8080';
+const API_BASE = "https://fairlens-api-747288447158.asia-south1.run.app";
 
 const DATASETS = [
   { id: 'adult',       name: 'UCI Adult',      domain: 'Income',       protected: 'Gender · Race', rows: '48,842',  severity: 'HIGH',   dataBias: 92, modelBias: 60 },

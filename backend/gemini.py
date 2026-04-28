@@ -20,7 +20,7 @@ import json
 import logging
 from typing import Optional
 
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
