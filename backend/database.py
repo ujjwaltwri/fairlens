@@ -20,7 +20,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
-
+import math
+import numpy as np
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -172,7 +173,6 @@ def list_jobs(limit: int = 50) -> list:
 
 def _serialise_for_pg(obj):
     """Recursively make an object safe for Postgres JSONB."""
-    import numpy as np
     if isinstance(obj, dict):
         return {k: _serialise_for_pg(v) for k, v in obj.items() if not k.startswith("_")}
     if isinstance(obj, (list, tuple)):
@@ -180,7 +180,10 @@ def _serialise_for_pg(obj):
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):
-        return float(obj)
+        v = float(obj)
+        return None if not math.isfinite(v) else v  # nan/inf → NULL
+    if isinstance(obj, float):
+        return None if not math.isfinite(obj) else obj  # catch plain Python nan/inf too
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.bool_,)):
