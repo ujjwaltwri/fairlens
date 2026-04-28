@@ -652,17 +652,17 @@ function MitigationTab({ d }) {
 }
 
 function ReportTab({ d, ds, sel }) {
-  const [rerunStatus, setRerunStatus] = React.useState(null); // null | 'loading' | 'done' | 'error'
-  const [jobId, setJobId] = React.useState(null);
+  const [rerunStatus, setRerunStatus] = useState(null); // null | 'loading' | 'done' | 'error'
+  const [rerunJobId,  setRerunJobId]  = useState(null);
 
   const handleRerun = async () => {
     setRerunStatus('loading');
-    setJobId(null);
+    setRerunJobId(null);
     try {
-      const res = await fetch(`${API}/audit/full/${sel}`, { method: 'POST' });
+      const res  = await fetch(`${API}/audit/full/${sel}`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || `Server error ${res.status}`);
-      setJobId(data.job_id);
+      setRerunJobId(data.job_id);
       setRerunStatus('done');
     } catch (err) {
       setRerunStatus('error');
@@ -743,20 +743,17 @@ function ReportTab({ d, ds, sel }) {
               ),
               e('span', { className: 'tag' }, 'POST')
             ),
-
-            // Status feedback
-            rerunStatus === 'done' && jobId && e('div', {
+            rerunStatus === 'done' && rerunJobId && e('div', {
               style: {
                 width: '100%', padding: '8px 12px', borderRadius: 'var(--r2)',
                 background: 'var(--green-dim)', border: '1px solid var(--green-border)',
                 fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--green)', lineHeight: 1.6,
               }
             },
-              '✓ Job queued — ID: ', e('strong', null, jobId),
+              '✓ Job queued — ID: ', e('strong', null, rerunJobId),
               e('br'),
-              `Poll: GET ${API}/jobs/${jobId}`
+              `Poll: GET ${API}/jobs/${rerunJobId}`
             ),
-
             rerunStatus === 'error' && e('div', {
               style: {
                 width: '100%', padding: '8px 12px', borderRadius: 'var(--r2)',
@@ -764,22 +761,19 @@ function ReportTab({ d, ds, sel }) {
                 fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--red)',
               }
             }, '✗ Request failed — check the server logs or try again'),
-
-            // The actual POST button
             e('button', {
-              className: `btn btn-primary btn-sm`,
+              className: 'btn btn-primary btn-sm',
               style: { alignSelf: 'flex-start' },
               disabled: rerunStatus === 'loading',
               onClick: handleRerun,
-            },
-              rerunStatus === 'loading' ? 'Starting…' : '▶  Re-run Audit'
-            )
+            }, rerunStatus === 'loading' ? 'Starting…' : '▶  Re-run Audit')
           )
         )
       )
     )
   );
 }
+
 /* ═══════════════════════════════
    AUDIT PAGE
 ═══════════════════════════════ */
@@ -797,34 +791,30 @@ function AuditPage({ initDs }) {
         const res = await fetch(`${API}/results/dataset/${sel}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        // Grab the first protected attribute to extract stats
-const attrKey = data.data_audit?.attribute_results ? Object.keys(data.data_audit.attribute_results)[0] : null;
-const attrStats = attrKey ? data.data_audit.attribute_results[attrKey] : {};
-
-// Translate real backend keys to what the UI components expect
-const mappedD = {
-  dataScore: data.data_bias_score || 0,
-  dataSev: data.data_severity || 'MEDIUM',
-  modelScore: data.model_bias_score || 0,
-  modelSev: data.model_severity || 'MEDIUM',
-  dir: attrStats.disparate_impact_ratio || 0,
-  dpg: attrStats.demographic_parity_gap || 0,
-  tprGap: data.model_audit?.tpr_gap || 0,
-  fprGap: data.model_audit?.fpr_gap || 0,
-  flipRate: data.model_audit?.counterfactual_flip_rate || 0,
-  acc: data.model_audit?.overall_metrics?.accuracy || 0,
-  auc: data.model_audit?.overall_metrics?.roc_auc || 0,
-  posPriv: 50, posUnpriv: 30, // Visual fallbacks
-  shap: data.model_audit?.top_features?.map(f => ({ f: f[0], v: f[1], p: false })) || [{f:'Loading...', v:0, p:false}],
-  mit: [
-    { n: 'Before Training', d: 'Reweighing', icon: '01', before: data.mitigation?.reweighing?.before?.bias_score || 0, after: data.mitigation?.reweighing?.after?.bias_score || 0, imp: data.mitigation?.reweighing?.improvement || 0, best: false },
-    { n: 'During Training', d: 'Fairness Constraint', icon: '02', before: data.mitigation?.fairness_constraint?.before?.bias_score || 0, after: data.mitigation?.fairness_constraint?.after?.bias_score || 0, imp: data.mitigation?.fairness_constraint?.improvement || 0, best: true },
-    { n: 'After Training', d: 'Threshold Calibration', icon: '03', before: data.mitigation?.threshold_calibration?.before?.bias_score || 0, after: data.mitigation?.threshold_calibration?.after?.bias_score || 0, imp: data.mitigation?.threshold_calibration?.improvement || 0, best: false }
-  ],
-  recs: data.gemini_recommendation ? data.gemini_recommendation.split('\n').filter(r => r.trim()) : ['Run pipeline to generate AI recommendations.']
-};
-
-setD(mappedD);
+        const attrKey = data.data_audit?.attribute_results ? Object.keys(data.data_audit.attribute_results)[0] : null;
+        const attrStats = attrKey ? data.data_audit.attribute_results[attrKey] : {};
+        const mappedD = {
+          dataScore: data.data_bias_score || 0,
+          dataSev: data.data_severity || 'MEDIUM',
+          modelScore: data.model_bias_score || 0,
+          modelSev: data.model_severity || 'MEDIUM',
+          dir: attrStats.disparate_impact_ratio || 0,
+          dpg: attrStats.demographic_parity_gap || 0,
+          tprGap: data.model_audit?.tpr_gap || 0,
+          fprGap: data.model_audit?.fpr_gap || 0,
+          flipRate: data.model_audit?.counterfactual_flip_rate || 0,
+          acc: data.model_audit?.overall_metrics?.accuracy || 0,
+          auc: data.model_audit?.overall_metrics?.roc_auc || 0,
+          posPriv: 50, posUnpriv: 30,
+          shap: data.model_audit?.top_features?.map(f => ({ f: f[0], v: f[1], p: false })) || [{f:'Loading...', v:0, p:false}],
+          mit: [
+            { n: 'Before Training', d: 'Reweighing', icon: '01', before: data.mitigation?.reweighing?.before?.bias_score || 0, after: data.mitigation?.reweighing?.after?.bias_score || 0, imp: data.mitigation?.reweighing?.improvement || 0, best: false },
+            { n: 'During Training', d: 'Fairness Constraint', icon: '02', before: data.mitigation?.fairness_constraint?.before?.bias_score || 0, after: data.mitigation?.fairness_constraint?.after?.bias_score || 0, imp: data.mitigation?.fairness_constraint?.improvement || 0, best: true },
+            { n: 'After Training', d: 'Threshold Calibration', icon: '03', before: data.mitigation?.threshold_calibration?.before?.bias_score || 0, after: data.mitigation?.threshold_calibration?.after?.bias_score || 0, imp: data.mitigation?.threshold_calibration?.improvement || 0, best: false }
+          ],
+          recs: data.gemini_recommendation ? data.gemini_recommendation.split('\n').filter(r => r.trim()) : ['Run pipeline to generate AI recommendations.']
+        };
+        setD(mappedD);
       } catch (err) {
         console.error('Failed to fetch audit data:', err);
         setD(null);
@@ -883,32 +873,43 @@ setD(mappedD);
 
 /* ═══════════════════════════════
    UPLOAD PAGE
+   All meaningful state is received as props from App so it
+   survives navigation away and back to this page.
 ═══════════════════════════════ */
-function UploadPage({ addToast }) {
-  const [file,      setFile]      = useState(null);
-  const [drag,      setDrag]      = useState(false);
-  const [target,    setTarget]    = useState('');
-  const [prot,      setProt]      = useState('');
-  const [loading,   setLoading]   = useState(false);
-  const [jobId,     setJobId]     = useState(null);
-  const [jobStatus, setJobStatus] = useState(null);
-  const [result,    setResult]    = useState(null);
-  const [columns,   setColumns]   = useState([]);
-  const [valErrors, setValErrors] = useState([]);
-  const fileRef   = useRef();
-  const pollRef   = useRef(null);
+function UploadPage({
+  addToast,
+  // lifted state from App
+  file,      setFile,
+  target,    setTarget,
+  prot,      setProt,
+  jobId,     setJobId,
+  jobStatus, setJobStatus,
+  result,    setResult,
+  columns,   setColumns,
+  valErrors, setValErrors,
+}) {
+  // drag and loading are purely transient UI — fine to stay local
+  const [drag,    setDrag]    = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fileRef = useRef();
+  const pollRef = useRef(null);
 
+  // On mount: if a job was already running when the user navigated away,
+  // resume polling so the result still arrives when it finishes.
   useEffect(() => {
+    if (jobId && jobStatus && jobStatus !== 'done' && jobStatus !== 'failed') {
+      startPolling(jobId);
+    }
+    // Clean up interval when navigating away again
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally run once on mount only
 
-  useEffect(() => {
-    if (!jobId) return;
+  const startPolling = (id) => {
     if (pollRef.current) clearInterval(pollRef.current);
 
     const poll = async () => {
       try {
-        const res  = await fetch(`${API}/jobs/${jobId}`);
+        const res  = await fetch(`${API}/jobs/${id}`);
         const data = await res.json();
         setJobStatus(data.status);
 
@@ -916,7 +917,7 @@ function UploadPage({ addToast }) {
           clearInterval(pollRef.current);
           pollRef.current = null;
           setLoading(false);
-          const rRes  = await fetch(`${API}/results/${jobId}`);
+          const rRes  = await fetch(`${API}/results/${id}`);
           const rData = await rRes.json();
           setResult(rData);
           addToast('Audit complete!', 'ok');
@@ -933,7 +934,7 @@ function UploadPage({ addToast }) {
 
     poll();
     pollRef.current = setInterval(poll, 3000);
-  }, [jobId]);
+  };
 
   const parseHeaders = f => {
     if (!f) return;
@@ -976,7 +977,7 @@ function UploadPage({ addToast }) {
     setJobStatus(null);
 
     let finalTarget = target.trim();
-    let finalProt = prot.trim();
+    let finalProt   = prot.trim();
 
     if (columns.length > 0) {
       const matchT = columns.find(c => c.toLowerCase() === finalTarget.toLowerCase());
@@ -987,8 +988,8 @@ function UploadPage({ addToast }) {
 
     try {
       const fd = new FormData();
-      fd.append('file', file);
-      fd.append('target_column', finalTarget);
+      fd.append('file',             file);
+      fd.append('target_column',    finalTarget);
       fd.append('protected_column', finalProt);
 
       const res  = await fetch(`${API}/audit/upload`, { method: 'POST', body: fd });
@@ -996,8 +997,8 @@ function UploadPage({ addToast }) {
 
       if (!res.ok) {
         const detail = data.detail || data;
-        const errs = detail.errors || [detail.message || `Server error ${res.status}`];
-        const cols = detail.available_columns || [];
+        const errs   = detail.errors || [detail.message || `Server error ${res.status}`];
+        const cols   = detail.available_columns || [];
         setValErrors(errs);
         if (cols.length) setColumns(cols);
         addToast(`${errs.length} problem(s) found — see details below`, 'err');
@@ -1008,6 +1009,7 @@ function UploadPage({ addToast }) {
       setJobId(data.job_id);
       setJobStatus('pending');
       addToast('File uploaded — running audit in the background…', 'ok');
+      startPolling(data.job_id);
 
     } catch (err) {
       addToast('Could not reach the server — is it running?', 'err');
@@ -1016,12 +1018,14 @@ function UploadPage({ addToast }) {
   };
 
   const statusLabel = () => {
-    if (jobStatus === 'pending')  return 'Queued — waiting to start…';
-    if (jobStatus === 'running')  return 'Running — checking data, training model, applying bias fixes…';
-    if (jobStatus === 'done')     return 'Complete';
-    if (jobStatus === 'failed')   return 'Something went wrong';
+    if (jobStatus === 'pending') return 'Queued — waiting to start…';
+    if (jobStatus === 'running') return 'Running — checking data, training model, applying bias fixes…';
+    if (jobStatus === 'done')    return 'Complete';
+    if (jobStatus === 'failed')  return 'Something went wrong';
     return 'Processing…';
   };
+
+  const isPolling = jobId && jobStatus && jobStatus !== 'done' && jobStatus !== 'failed';
 
   return e('div', { className: 'page', style: { position: 'relative' } },
     loading && e('div', { className: 'overlay' },
@@ -1130,7 +1134,7 @@ function UploadPage({ addToast }) {
             )
           ),
 
-          jobId && jobStatus !== 'done' && jobStatus !== 'failed' && e('div', {
+          isPolling && e('div', {
             style: {
               padding: '12px 16px', background: 'var(--paper2)',
               borderRadius: 'var(--r2)', border: '1px solid var(--rule2)',
@@ -1146,7 +1150,7 @@ function UploadPage({ addToast }) {
             className: 'btn btn-primary',
             style: { width: '100%', justifyContent: 'center', padding: '13px', fontSize: 14 },
             onClick: submit,
-            disabled: loading || (jobStatus && jobStatus !== 'done' && jobStatus !== 'failed')
+            disabled: loading || isPolling,
           }, loading ? 'Running audit…' : 'Run Full Bias Check')
         )
       ),
@@ -1181,7 +1185,7 @@ function UploadPage({ addToast }) {
                 e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--green)', marginBottom: 4 } }, '✦ Reports are ready'),
                 e('div', { style: { fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.6, fontFamily: 'var(--mono)' } }, 'Your PDF and data reports are available to download below.')
               ),
-              result.report_pdf_url && e('a', { href: result.report_pdf_url, target: '_blank', className: 'btn btn-primary', style: { marginRight: 10 } }, '↓ Download PDF Report'),
+              result.report_pdf_url  && e('a', { href: result.report_pdf_url,  target: '_blank', className: 'btn btn-primary', style: { marginRight: 10 } }, '↓ Download PDF Report'),
               result.report_json_url && e('a', { href: result.report_json_url, target: '_blank', className: 'btn' }, '{} Download Data Report'),
               !result.report_pdf_url && e('a', { href: `${API}/docs`, target: '_blank', className: 'btn btn-ghost' }, 'View API Documentation ↗')
             )
@@ -1323,11 +1327,23 @@ function AboutPage() {
 
 /* ═══════════════════════════════
    ROOT APP
+   Upload state lives here so it survives page switches.
 ═══════════════════════════════ */
 function App() {
   const [page,    setPage]    = useState('dashboard');
   const [auditDs, setAuditDs] = useState('adult');
   const [toasts,  setToasts]  = useState([]);
+
+  // ── Lifted upload state ──────────────────────────────────────────────────
+  const [uploadFile,      setUploadFile]      = useState(null);
+  const [uploadTarget,    setUploadTarget]    = useState('');
+  const [uploadProt,      setUploadProt]      = useState('');
+  const [uploadJobId,     setUploadJobId]     = useState(null);
+  const [uploadJobStatus, setUploadJobStatus] = useState(null);
+  const [uploadResult,    setUploadResult]    = useState(null);
+  const [uploadColumns,   setUploadColumns]   = useState([]);
+  const [uploadValErrors, setUploadValErrors] = useState([]);
+  // ────────────────────────────────────────────────────────────────────────
 
   const addToast = useCallback((msg, type = 'info') => {
     const id = Date.now();
@@ -1415,8 +1431,18 @@ function App() {
       e('div', { className: 'content' },
         page === 'dashboard' && e(DashboardPage, { onNavigate: navigate }),
         page === 'audit'     && e(AuditPage,     { key: auditDs, initDs: auditDs }),
-        page === 'upload'    && e(UploadPage,     { addToast }),
-        page === 'about'     && e(AboutPage,      null),
+        page === 'upload'    && e(UploadPage, {
+          addToast,
+          file:      uploadFile,      setFile:      setUploadFile,
+          target:    uploadTarget,    setTarget:    setUploadTarget,
+          prot:      uploadProt,      setProt:      setUploadProt,
+          jobId:     uploadJobId,     setJobId:     setUploadJobId,
+          jobStatus: uploadJobStatus, setJobStatus: setUploadJobStatus,
+          result:    uploadResult,    setResult:    setUploadResult,
+          columns:   uploadColumns,   setColumns:   setUploadColumns,
+          valErrors: uploadValErrors, setValErrors: setUploadValErrors,
+        }),
+        page === 'about'     && e(AboutPage, null),
       )
     ),
 
