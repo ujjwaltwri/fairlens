@@ -1,42 +1,43 @@
 {
   "report_metadata": {
-    "generated_at": "2026-04-21T12:36:14.853598",
+    "generated_at": "2026-04-28T03:11:09.402082",
     "dataset_name": "utrecht",
     "dataset_label": "Utrecht Fairness Recruitment",
-    "report_version": "1.0"
+    "report_version": "2.0",
+    "gemini_enhanced": false
   },
   "data_audit": {
     "n_rows": 2000,
     "target": "hired",
-    "overall_bias_score": 84,
-    "overall_severity": "HIGH",
+    "overall_bias_score": 49,
+    "overall_severity": "MEDIUM",
     "attribute_results": {
       "gender_binary": {
-        "disparate_impact_ratio": 0.6747,
-        "dir_pass": false,
-        "demographic_parity_gap": 0.2758,
-        "positive_rate_privileged": 0.8477,
-        "positive_rate_unprivileged": 0.5719,
+        "disparate_impact_ratio": 0.8899,
+        "dir_pass": true,
+        "demographic_parity_gap": 0.1088,
+        "positive_rate_privileged": 0.9881,
+        "positive_rate_unprivileged": 0.8793,
         "chi2_pvalue": 0.0,
         "chi2_significant": true,
-        "bias_score": 84,
-        "severity": "HIGH",
+        "bias_score": 49,
+        "severity": "MEDIUM",
         "top_proxy_features": [
           [
+            "experience",
+            0.0319
+          ],
+          [
             "interview_score",
-            0.0327
+            0.0302
           ],
           [
             "skill_score",
-            0.0186
+            0.0185
           ],
           [
             "age",
-            0.0115
-          ],
-          [
-            "experience",
-            0.0012
+            0.0078
           ]
         ]
       }
@@ -45,86 +46,86 @@
   "model_audit": {
     "model_type": "logistic",
     "overall_metrics": {
-      "accuracy": 0.894,
-      "precision": 0.9098,
-      "recall": 0.9475,
-      "roc_auc": 0.9607
+      "accuracy": 0.938,
+      "precision": 0.938,
+      "recall": 1.0,
+      "roc_auc": 0.802
     },
     "group_metrics": {
       "privileged": {
-        "n": 271,
-        "accuracy": 0.8967,
-        "tpr": 0.9733,
-        "fpr": 0.4783,
-        "precision": 0.9087,
-        "positive_rate": 0.8893
+        "n": 266,
+        "accuracy": 0.985,
+        "tpr": 1.0,
+        "fpr": 1.0,
+        "precision": 0.985,
+        "positive_rate": 1.0
       },
       "unprivileged": {
-        "n": 229,
-        "accuracy": 0.8908,
-        "tpr": 0.9051,
-        "fpr": 0.1304,
-        "precision": 0.9118,
-        "positive_rate": 0.5939
+        "n": 234,
+        "accuracy": 0.8846,
+        "tpr": 1.0,
+        "fpr": 1.0,
+        "precision": 0.8846,
+        "positive_rate": 1.0
       }
     },
-    "tpr_gap": 0.0682,
-    "fpr_gap": 0.3479,
-    "predictive_parity_gap": 0.0031,
-    "counterfactual_flip_rate": 0.16,
-    "model_dir": 0.6678,
-    "bias_score": 64,
-    "severity": "MEDIUM",
+    "tpr_gap": 0.0,
+    "fpr_gap": 0.0,
+    "predictive_parity_gap": 0.1004,
+    "counterfactual_flip_rate": 0.0,
+    "model_dir": 1.0,
+    "bias_score": 0,
+    "severity": "LOW",
     "top_shap_features": [
       [
-        "experience",
-        2.6865
-      ],
-      [
-        "skill_score",
-        1.7482
-      ],
-      [
         "gender",
-        0.9501
+        0.6488
       ],
       [
         "gender_binary",
-        0.9501
+        0.6488
       ],
       [
-        "interview_score",
-        0.6813
+        "skill_score",
+        0.2911
       ],
       [
         "age",
-        0.1628
+        0.2581
+      ],
+      [
+        "interview_score",
+        0.1801
       ],
       [
         "education",
-        0.0567
+        0.0614
+      ],
+      [
+        "experience",
+        0.0454
       ]
     ]
   },
   "mitigation": {
     "strategies": {
       "reweighing": {
-        "before_score": 38,
-        "after_score": 38,
+        "before_score": 0,
+        "after_score": 0,
         "improvement": 0,
-        "before_tpr_gap": 0.0682,
-        "after_tpr_gap": 0.0682,
-        "before_accuracy": 0.894,
-        "after_accuracy": 0.894
+        "before_tpr_gap": 0.0,
+        "after_tpr_gap": 0.0,
+        "before_accuracy": 0.938,
+        "after_accuracy": 0.938
       },
       "fairness_constraint": {
-        "before_score": 38,
-        "after_score": 15,
-        "improvement": 23,
-        "before_tpr_gap": 0.0682,
-        "after_tpr_gap": 0.0063,
-        "before_accuracy": 0.894,
-        "after_accuracy": 0.89
+        "before_score": 0,
+        "after_score": 0,
+        "improvement": 0,
+        "before_tpr_gap": 0.0,
+        "after_tpr_gap": 0.0,
+        "before_accuracy": 0.938,
+        "after_accuracy": 0.938
       },
       "threshold_calibration": {
         "before_score": 0,
@@ -132,16 +133,18 @@
         "improvement": 0,
         "before_tpr_gap": 0,
         "after_tpr_gap": 0,
-        "before_accuracy": 0.894,
-        "after_accuracy": 0.834
+        "before_accuracy": 0.938,
+        "after_accuracy": 0.938
       }
     },
-    "best_strategy": "fairness_constraint",
+    "best_strategy": "reweighing",
     "recommended_actions": [
-      "Apply reweighing to fix disparate impact on 'gender_binary' (DIR=0.67)",
       "Protected attribute 'gender_binary' is statistically associated with outcome \u2014 investigate proxy features",
-      "Counterfactual flip rate 16.0% \u2014 model is directly using protected attribute",
-      "MEDIUM RISK: Apply at least one mitigation strategy before deployment"
+      "LOW RISK: Monitor for drift, re-audit quarterly"
     ]
+  },
+  "gemini_analysis": {
+    "narrative": null,
+    "recommendation": null
   }
 }

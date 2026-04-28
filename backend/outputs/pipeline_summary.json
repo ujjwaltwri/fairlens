@@ -7,10 +7,106 @@
     "model_accuracy": 0.8214,
     "model_auc": 0.8485,
     "tpr_gap": 0.2976,
+    "fpr_gap": 0.0768,
+    "counterfactual_flip_rate": 0.0233,
     "mitigation_improvements": {
       "reweighing": 0,
-      "fairness_constraint": 29,
+      "fairness_constraint": 30,
       "threshold_calibration": 0
+    },
+    "gemini_narrative_generated": false,
+    "gemini_recommendation_generated": false,
+    "reports": {
+      "json": "D:\\Codefiles\\fairlens\\backend\\outputs\\adult_bias_report.json",
+      "pdf": "D:\\Codefiles\\fairlens\\backend\\outputs\\adult_bias_report.pdf"
+    }
+  },
+  "compas": {
+    "data_bias_score": 62,
+    "data_severity": "MEDIUM",
+    "model_bias_score": 80,
+    "model_severity": "HIGH",
+    "model_accuracy": 0.6606,
+    "model_auc": 0.7119,
+    "tpr_gap": 0.2846,
+    "fpr_gap": 0.1798,
+    "counterfactual_flip_rate": 0.0045,
+    "mitigation_improvements": {
+      "reweighing": 0,
+      "fairness_constraint": 44,
+      "threshold_calibration": 0
+    },
+    "gemini_narrative_generated": false,
+    "gemini_recommendation_generated": false,
+    "reports": {
+      "json": "D:\\Codefiles\\fairlens\\backend\\outputs\\compas_bias_report.json",
+      "pdf": "D:\\Codefiles\\fairlens\\backend\\outputs\\compas_bias_report.pdf"
+    }
+  },
+  "german": {
+    "data_bias_score": 0,
+    "data_severity": "LOW",
+    "model_bias_score": 0,
+    "model_severity": "LOW",
+    "model_accuracy": 0.768,
+    "model_auc": 0.7982,
+    "tpr_gap": 0,
+    "fpr_gap": 0,
+    "counterfactual_flip_rate": 0.0,
+    "mitigation_improvements": {
+      "reweighing": 0,
+      "fairness_constraint": 0,
+      "threshold_calibration": 19
+    },
+    "gemini_narrative_generated": false,
+    "gemini_recommendation_generated": false,
+    "reports": {
+      "json": "D:\\Codefiles\\fairlens\\backend\\outputs\\german_bias_report.json",
+      "pdf": "D:\\Codefiles\\fairlens\\backend\\outputs\\german_bias_report.pdf"
+    }
+  },
+  "utrecht": {
+    "data_bias_score": 49,
+    "data_severity": "MEDIUM",
+    "model_bias_score": 0,
+    "model_severity": "LOW",
+    "model_accuracy": 0.938,
+    "model_auc": 0.802,
+    "tpr_gap": 0.0,
+    "fpr_gap": 0.0,
+    "counterfactual_flip_rate": 0.0,
+    "mitigation_improvements": {
+      "reweighing": 0,
+      "fairness_constraint": 0,
+      "threshold_calibration": 0
+    },
+    "gemini_narrative_generated": false,
+    "gemini_recommendation_generated": false,
+    "reports": {
+      "json": "D:\\Codefiles\\fairlens\\backend\\outputs\\utrecht_bias_report.json",
+      "pdf": "D:\\Codefiles\\fairlens\\backend\\outputs\\utrecht_bias_report.pdf"
+    }
+  },
+  "diabetes130": {
+    "data_bias_score": 0,
+    "data_severity": "LOW",
+    "model_bias_score": 24,
+    "model_severity": "LOW",
+    "model_accuracy": 0.8878,
+    "model_auc": 0.648,
+    "tpr_gap": 0.0208,
+    "fpr_gap": 0.0001,
+    "counterfactual_flip_rate": 0.0016,
+    "mitigation_improvements": {
+      "reweighing": 0,
+      "fairness_constraint": 1,
+      "threshold_calibration": 0
+    },
+    "gemini_narrative_generated": false,
+    "gemini_recommendation_generated": false,
+    "reports": {
+      "json": "D:\\Codefiles\\fairlens\\backend\\outputs\\diabetes130_bias_report.json",
+      "pdf": "D:\\Codefiles\\fairlens\\backend\\outputs\\diabetes130_bias_report.pdf"
     }
   }
 }

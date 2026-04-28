@@ -11,7 +11,7 @@ const e = React.createElement;
 /* ═══════════════════════════════
    CONSTANTS
 ═══════════════════════════════ */
-const API = 'http://localhost:8000';
+const API = 'http://localhost:8080';
 
 const DATASETS = [
   { id: 'adult',       name: 'UCI Adult',      domain: 'Income',       protected: 'Gender · Race', rows: '48,842',  severity: 'HIGH',   dataBias: 92, modelBias: 60 },
@@ -730,8 +730,54 @@ function ReportTab({ d, ds, sel }) {
 function AuditPage({ initDs }) {
   const [sel, setSel] = useState(initDs || 'adult');
   const [tab, setTab] = useState('overview');
-  const d  = AUDIT[sel];
+  const [d, setD] = useState(null);
+  const [loading, setLoading] = useState(true);
   const ds = DATASETS.find(x => x.id === sel);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/results/dataset/${sel}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        // Grab the first protected attribute to extract stats
+const attrKey = data.data_audit?.attribute_results ? Object.keys(data.data_audit.attribute_results)[0] : null;
+const attrStats = attrKey ? data.data_audit.attribute_results[attrKey] : {};
+
+// Translate real backend keys to what the UI components expect
+const mappedD = {
+  dataScore: data.data_bias_score || 0,
+  dataSev: data.data_severity || 'MEDIUM',
+  modelScore: data.model_bias_score || 0,
+  modelSev: data.model_severity || 'MEDIUM',
+  dir: attrStats.disparate_impact_ratio || 0,
+  dpg: attrStats.demographic_parity_gap || 0,
+  tprGap: data.model_audit?.tpr_gap || 0,
+  fprGap: data.model_audit?.fpr_gap || 0,
+  flipRate: data.model_audit?.counterfactual_flip_rate || 0,
+  acc: data.model_audit?.overall_metrics?.accuracy || 0,
+  auc: data.model_audit?.overall_metrics?.roc_auc || 0,
+  posPriv: 50, posUnpriv: 30, // Visual fallbacks
+  shap: data.model_audit?.top_features?.map(f => ({ f: f[0], v: f[1], p: false })) || [{f:'Loading...', v:0, p:false}],
+  mit: [
+    { n: 'Before Training', d: 'Reweighing', icon: '01', before: data.mitigation?.reweighing?.before?.bias_score || 0, after: data.mitigation?.reweighing?.after?.bias_score || 0, imp: data.mitigation?.reweighing?.improvement || 0, best: false },
+    { n: 'During Training', d: 'Fairness Constraint', icon: '02', before: data.mitigation?.fairness_constraint?.before?.bias_score || 0, after: data.mitigation?.fairness_constraint?.after?.bias_score || 0, imp: data.mitigation?.fairness_constraint?.improvement || 0, best: true },
+    { n: 'After Training', d: 'Threshold Calibration', icon: '03', before: data.mitigation?.threshold_calibration?.before?.bias_score || 0, after: data.mitigation?.threshold_calibration?.after?.bias_score || 0, imp: data.mitigation?.threshold_calibration?.improvement || 0, best: false }
+  ],
+  recs: data.gemini_recommendation ? data.gemini_recommendation.split('\n').filter(r => r.trim()) : ['Run pipeline to generate AI recommendations.']
+};
+
+setD(mappedD);
+      } catch (err) {
+        console.error('Failed to fetch audit data:', err);
+        setD(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [sel]);
 
   const tabs = [
     { id: 'overview',   label: 'Summary' },
@@ -769,13 +815,13 @@ function AuditPage({ initDs }) {
         )
       )
     ),
-    e('div', { key: sel + tab },
+    loading ? e(Spinner) : (d && e('div', { key: sel + tab },
       tab === 'overview'   && e(OverviewTab,   { d, ds }),
       tab === 'dataaudit'  && e(DataAuditTab,  { d }),
       tab === 'modelaudit' && e(ModelAuditTab, { d }),
       tab === 'mitigation' && e(MitigationTab, { d }),
       tab === 'report'     && e(ReportTab,     { d, ds, sel }),
-    )
+    ))
   );
 }
 

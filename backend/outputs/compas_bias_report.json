@@ -1,9 +1,10 @@
 {
   "report_metadata": {
-    "generated_at": "2026-04-21T12:36:14.833333",
+    "generated_at": "2026-04-28T03:11:09.382262",
     "dataset_name": "compas",
     "dataset_label": "COMPAS Recidivism (ProPublica)",
-    "report_version": "1.0"
+    "report_version": "2.0",
+    "gemini_enhanced": false
   },
   "data_audit": {
     "n_rows": 5278,
@@ -101,11 +102,11 @@
         0.0936
       ],
       [
-        "sex",
+        "sex_binary",
         0.0653
       ],
       [
-        "sex_binary",
+        "sex",
         0.0653
       ],
       [
@@ -135,12 +136,12 @@
       },
       "fairness_constraint": {
         "before_score": 60,
-        "after_score": 23,
-        "improvement": 37,
+        "after_score": 16,
+        "improvement": 44,
         "before_tpr_gap": 0.2845,
-        "after_tpr_gap": 0.0504,
+        "after_tpr_gap": 0.0429,
         "before_accuracy": 0.6606060606060606,
-        "after_accuracy": 0.6409090909090909
+        "after_accuracy": 0.6462121212121212
       },
       "threshold_calibration": {
         "before_score": 0,
@@ -159,5 +160,9 @@
       "True positive rate gap of 0.285 detected \u2014 apply equalized odds post-processing",
       "HIGH RISK: Do not deploy this model without bias mitigation"
     ]
+  },
+  "gemini_analysis": {
+    "narrative": null,
+    "recommendation": null
   }
 }
