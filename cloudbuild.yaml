@@ -1,3 +1,4 @@
+cat > cloudbuild.yaml << 'EOF'
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest', './backend']
@@ -18,3 +19,4 @@ steps:
 
 images:
   - 'asia-south1-docker.pkg.dev/projectx-5807d/fairlens/fairlens-api:latest'
+EOF
