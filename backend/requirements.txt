@@ -33,4 +33,3 @@ reportlab>=4.0
 matplotlib>=3.7
 seaborn>=0.13
 slowapi
-math
