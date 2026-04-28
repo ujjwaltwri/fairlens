@@ -652,6 +652,23 @@ function MitigationTab({ d }) {
 }
 
 function ReportTab({ d, ds, sel }) {
+  const [rerunStatus, setRerunStatus] = React.useState(null); // null | 'loading' | 'done' | 'error'
+  const [jobId, setJobId] = React.useState(null);
+
+  const handleRerun = async () => {
+    setRerunStatus('loading');
+    setJobId(null);
+    try {
+      const res = await fetch(`${API}/audit/full/${sel}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Server error ${res.status}`);
+      setJobId(data.job_id);
+      setRerunStatus('done');
+    } catch (err) {
+      setRerunStatus('error');
+    }
+  };
+
   return e('div', { style: { animation: 'page-in .3s ease' } },
     e('div', { style: { marginBottom: 20 } },
       e('h2', { style: { fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 400, marginBottom: 4, color: 'var(--ink-1)', letterSpacing: '-0.5px' } }, 'Download Reports'),
@@ -695,6 +712,8 @@ function ReportTab({ d, ds, sel }) {
       e('div', { className: 'card' },
         e('div', { className: 'card-head' }, e('span', { className: 'card-title' }, 'Download options')),
         e('div', { className: 'card-body' },
+
+          // ── PDF download ───────────────────────────────────────────
           e('a', { href: `${API}/report/${sel}/pdf`, target: '_blank', className: 'report-dl-item' },
             e('div', { className: 'report-dl-icon' }, '↓'),
             e('div', { style: { flex: 1 } },
@@ -703,6 +722,8 @@ function ReportTab({ d, ds, sel }) {
             ),
             e('span', { className: 'tag' }, 'PDF')
           ),
+
+          // ── JSON download ──────────────────────────────────────────
           e('a', { href: `${API}/report/${sel}/json`, target: '_blank', className: 'report-dl-item' },
             e('div', { className: 'report-dl-icon' }, '{}'),
             e('div', { style: { flex: 1 } },
@@ -711,20 +732,54 @@ function ReportTab({ d, ds, sel }) {
             ),
             e('span', { className: 'tag' }, 'JSON')
           ),
-          e('a', { href: `${API}/audit/full/${sel}`, target: '_blank', className: 'report-dl-item' },
-            e('div', { className: 'report-dl-icon' }, '▶'),
-            e('div', { style: { flex: 1 } },
-              e('div', { className: 'report-dl-name' }, 'Re-run This Audit via API'),
-              e('div', { className: 'report-dl-desc' }, 'Trigger a fresh full audit programmatically using our REST endpoint'),
+
+          // ── Re-run (POST button, not a link) ───────────────────────
+          e('div', { className: 'report-dl-item', style: { flexDirection: 'column', gap: 10, alignItems: 'flex-start', cursor: 'default' } },
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, width: '100%' } },
+              e('div', { className: 'report-dl-icon' }, '▶'),
+              e('div', { style: { flex: 1 } },
+                e('div', { className: 'report-dl-name' }, 'Re-run This Audit via API'),
+                e('div', { className: 'report-dl-desc' }, 'Trigger a fresh full audit — runs in the background, returns a job ID to poll for status'),
+              ),
+              e('span', { className: 'tag' }, 'POST')
             ),
-            e('span', { className: 'tag' }, 'POST')
-          ),
+
+            // Status feedback
+            rerunStatus === 'done' && jobId && e('div', {
+              style: {
+                width: '100%', padding: '8px 12px', borderRadius: 'var(--r2)',
+                background: 'var(--green-dim)', border: '1px solid var(--green-border)',
+                fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--green)', lineHeight: 1.6,
+              }
+            },
+              '✓ Job queued — ID: ', e('strong', null, jobId),
+              e('br'),
+              `Poll: GET ${API}/jobs/${jobId}`
+            ),
+
+            rerunStatus === 'error' && e('div', {
+              style: {
+                width: '100%', padding: '8px 12px', borderRadius: 'var(--r2)',
+                background: 'var(--red-dim)', border: '1px solid var(--red-border)',
+                fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--red)',
+              }
+            }, '✗ Request failed — check the server logs or try again'),
+
+            // The actual POST button
+            e('button', {
+              className: `btn btn-primary btn-sm`,
+              style: { alignSelf: 'flex-start' },
+              disabled: rerunStatus === 'loading',
+              onClick: handleRerun,
+            },
+              rerunStatus === 'loading' ? 'Starting…' : '▶  Re-run Audit'
+            )
+          )
         )
       )
     )
   );
 }
-
 /* ═══════════════════════════════
    AUDIT PAGE
 ═══════════════════════════════ */
