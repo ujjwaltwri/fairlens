@@ -22,6 +22,7 @@ from typing import Optional
 from uuid import UUID
 import math
 import numpy as np
+import pandas as pd  # <-- Added pandas import
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -177,6 +178,14 @@ def _serialise_for_pg(obj):
         return {k: _serialise_for_pg(v) for k, v in obj.items() if not k.startswith("_")}
     if isinstance(obj, (list, tuple)):
         return [_serialise_for_pg(i) for i in obj]
+        
+    # --- Pandas handling added here ---
+    if isinstance(obj, pd.Series):
+        return _serialise_for_pg(obj.to_dict())
+    if isinstance(obj, pd.DataFrame):
+        return _serialise_for_pg(obj.to_dict(orient="records"))
+    # ----------------------------------
+
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):
