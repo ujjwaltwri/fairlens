@@ -12,11 +12,9 @@ Env vars required:
   GEMINI_API_KEY   — from Google AI Studio (aistudio.google.com)
 
 Model used: gemini-2.5-flash  (fast, cheap, good enough for structured summaries)
-Swap to gemini-2.5-pro for richer reasoning if needed.
 """
 
 import os
-import json
 import logging
 from typing import Optional
 
@@ -33,12 +31,21 @@ _GEMINI_MODEL = "gemini-2.5-flash"
 # Init
 # ─────────────────────────────────────────────────────────────
 
-def _get_model():
+def _get_client() -> genai.Client:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(_GEMINI_MODEL)
+    return genai.Client(api_key=api_key)
+
+
+def _generate(prompt: str) -> str:
+    """Single-turn text generation."""
+    client = _get_client()
+    response = client.models.generate_content(
+        model=_GEMINI_MODEL,
+        contents=prompt,
+    )
+    return response.text.strip()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -50,30 +57,16 @@ def generate_narrative(
     data_audit: dict,
     model_audit: dict,
 ) -> str:
-    """
-    Takes the numeric audit results and returns a 2–3 paragraph
-    plain-English explanation suitable for a compliance officer.
-
-    Args:
-        dataset_label : human-readable name e.g. "UCI Adult (Census Income)"
-        data_audit    : dict from data_auditor.audit_dataset()
-        model_audit   : dict from model_auditor.audit_model()
-
-    Returns:
-        Narrative string (plain text, no markdown).
-    """
-    # Pull key numbers
-    data_score  = data_audit.get("overall_bias_score", "N/A")
-    data_sev    = data_audit.get("overall_severity", "N/A")
-    model_score = model_audit.get("bias_score", "N/A")
-    model_sev   = model_audit.get("severity", "N/A")
-    tpr_gap     = model_audit.get("tpr_gap", "N/A")
-    fpr_gap     = model_audit.get("fpr_gap", "N/A")
-    flip_rate   = model_audit.get("counterfactual_flip_rate", "N/A")
-    accuracy    = model_audit.get("overall_metrics", {}).get("accuracy", "N/A")
+    data_score   = data_audit.get("overall_bias_score", "N/A")
+    data_sev     = data_audit.get("overall_severity", "N/A")
+    model_score  = model_audit.get("bias_score", "N/A")
+    model_sev    = model_audit.get("severity", "N/A")
+    tpr_gap      = model_audit.get("tpr_gap", "N/A")
+    fpr_gap      = model_audit.get("fpr_gap", "N/A")
+    flip_rate    = model_audit.get("counterfactual_flip_rate", "N/A")
+    accuracy     = model_audit.get("overall_metrics", {}).get("accuracy", "N/A")
     top_features = model_audit.get("top_features", [])[:5]
 
-    # Extract per-attribute results
     attr_summaries = []
     for attr, r in data_audit.get("attribute_results", {}).items():
         attr_summaries.append(
@@ -85,7 +78,7 @@ def generate_narrative(
             f"Bias score = {r.get('bias_score')}/100 [{r.get('severity')}]"
         )
 
-    attr_block = "\n".join(attr_summaries) if attr_summaries else "  No attributes analysed."
+    attr_block    = "\n".join(attr_summaries) if attr_summaries else "  No attributes analysed."
     feature_block = ", ".join(f"{f} ({v:.3f})" for f, v in top_features) if top_features else "N/A"
 
     prompt = f"""You are a senior AI ethics and compliance expert writing an audit report for non-technical stakeholders.
@@ -104,7 +97,7 @@ Overall model bias score: {model_score}/100 [{model_sev}]
 Model accuracy: {accuracy}
 TPR gap (Equalized Odds): {tpr_gap}
 FPR gap (Equalized Odds): {fpr_gap}
-Counterfactual flip rate: {flip_rate} (fraction of predictions that change when the protected attribute is flipped)
+Counterfactual flip rate: {flip_rate}
 Top SHAP features driving predictions: {feature_block}
 
 Write exactly 3 paragraphs:
@@ -115,9 +108,7 @@ Write exactly 3 paragraphs:
 Do not use any bullet points, headers, or markdown. Write in formal but accessible English."""
 
     try:
-        model = _get_model()
-        response = model.generate_content(prompt)
-        narrative = response.text.strip()
+        narrative = _generate(prompt)
         logger.info(f"[Gemini] Narrative generated for '{dataset_label}'")
         return narrative
     except Exception as e:
@@ -138,13 +129,6 @@ def generate_recommendation(
     model_audit: dict,
     mitigation_results: dict,
 ) -> str:
-    """
-    Given the 3 mitigation strategy results, recommend which one
-    to deploy and explain the accuracy-fairness tradeoff.
-
-    Returns:
-        Recommendation string (plain text, 2 paragraphs).
-    """
     strategies = []
     for name, r in mitigation_results.items():
         before = r.get("before", {})
@@ -157,7 +141,7 @@ def generate_recommendation(
             f"accuracy {before.get('accuracy', 'N/A')} → {after.get('accuracy', 'N/A')}"
         )
 
-    strat_block = "\n".join(strategies)
+    strat_block   = "\n".join(strategies)
     base_accuracy = model_audit.get("overall_metrics", {}).get("accuracy", "N/A")
     base_score    = model_audit.get("bias_score", "N/A")
 
@@ -176,14 +160,11 @@ Write exactly 2 paragraphs (plain prose, no markdown, no bullet points):
 Be concrete and direct. If one strategy clearly dominates, say so plainly."""
 
     try:
-        model = _get_model()
-        response = model.generate_content(prompt)
-        recommendation = response.text.strip()
+        recommendation = _generate(prompt)
         logger.info(f"[Gemini] Recommendation generated for '{dataset_label}'")
         return recommendation
     except Exception as e:
         logger.error(f"[Gemini] Recommendation generation failed: {e}")
-        # Fallback: find best strategy manually
         if mitigation_results:
             best = max(mitigation_results.items(), key=lambda x: x[1].get("improvement", 0))
             return (
@@ -207,23 +188,6 @@ def chat(
     gemini_narrative: Optional[str] = None,
     conversation_history: Optional[list] = None,
 ) -> str:
-    """
-    Answer a free-form question about the audit with full context injected.
-
-    Args:
-        question             : user's question string
-        dataset_label        : e.g. "UCI Adult (Census Income)"
-        data_audit           : full data audit result dict
-        model_audit          : full model audit result dict
-        mitigation_results   : full mitigation result dict
-        gemini_narrative     : previously generated narrative (optional context)
-        conversation_history : list of {"role": "user"|"model", "parts": [str]}
-                               for multi-turn conversations (optional)
-
-    Returns:
-        Answer string (plain text).
-    """
-    # Build compact audit summary to fit in context
     data_score  = data_audit.get("overall_bias_score")
     data_sev    = data_audit.get("overall_severity")
     model_score = model_audit.get("bias_score")
@@ -250,7 +214,7 @@ def chat(
             f"(+{r.get('improvement', 0)} pts)"
         )
 
-    system_context = f"""You are FairLens, an AI bias auditing assistant. You have just completed a full bias audit. Answer the user's questions about the audit results clearly and concisely.
+    system_context = f"""You are FairLens, an AI bias auditing assistant. Answer the user's questions about the audit results clearly and concisely.
 
 AUDIT CONTEXT:
 Dataset: {dataset_label}
@@ -266,17 +230,30 @@ Mitigation results: {' | '.join(mit_lines)}
 Answer in plain English. Be specific and cite numbers from the audit. If the question is outside the scope of this audit, say so clearly."""
 
     try:
-        model = _get_model()
+        client = _get_client()
 
-        # Multi-turn if history provided
         if conversation_history:
-            chat_session = model.start_chat(history=conversation_history)
-            # Inject system context into first user message if history is empty
+            # Build contents list from history + new question
+            contents = []
+            for turn in conversation_history:
+                contents.append({
+                    "role": turn["role"],
+                    "parts": [{"text": p if isinstance(p, str) else p.get("text", "")}
+                               for p in turn["parts"]]
+                })
+            # Prepend system context to first user message
             full_question = f"{system_context}\n\nUser question: {question}"
-            response = chat_session.send_message(full_question)
+            contents.append({"role": "user", "parts": [{"text": full_question}]})
+            response = client.models.generate_content(
+                model=_GEMINI_MODEL,
+                contents=contents,
+            )
         else:
             full_prompt = f"{system_context}\n\nUser question: {question}"
-            response = model.generate_content(full_prompt)
+            response = client.models.generate_content(
+                model=_GEMINI_MODEL,
+                contents=full_prompt,
+            )
 
         answer = response.text.strip()
         logger.info(f"[Gemini] Chat answered for '{dataset_label}': {question[:60]}...")
@@ -294,12 +271,7 @@ Answer in plain English. Be specific and cite numbers from the audit. If the que
 def gemini_available() -> bool:
     """Returns True if Gemini API key is set and reachable."""
     try:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            return False
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(_GEMINI_MODEL)
-        model.generate_content("ping")
+        _generate("ping")
         return True
     except Exception:
         return False
