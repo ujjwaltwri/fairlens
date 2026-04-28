@@ -103,16 +103,29 @@ HEAVY_LIMIT = "10/hour"
 # Helpers
 # ─────────────────────────────────────────────────────────────
 
+def _safe_float(v):
+    """Convert float to JSON-safe value — maps NaN/inf to None."""
+    if v != v or v == float('inf') or v == float('-inf'):
+        return None
+    return v
+
+
 def _serialise(obj):
     """Recursively make an object JSON-safe for API responses."""
     if isinstance(obj, dict):
         return {k: _serialise(v) for k, v in obj.items() if not k.startswith("_")}
     if isinstance(obj, (list, tuple)):
         return [_serialise(i) for i in obj]
-    if isinstance(obj, (np.integer,)):   return int(obj)
-    if isinstance(obj, (np.floating,)):  return float(obj)
-    if isinstance(obj, np.ndarray):      return obj.tolist()
-    if isinstance(obj, np.bool_):        return bool(obj)
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return _safe_float(float(obj))
+    if isinstance(obj, float):
+        return _safe_float(obj)
+    if isinstance(obj, np.ndarray):
+        return [_serialise(x) for x in obj.tolist()]
+    if isinstance(obj, np.bool_):
+        return bool(obj)
     if hasattr(obj, "predict") or (hasattr(obj, "transform") and not isinstance(obj, dict)):
         return None
     return obj
@@ -437,7 +450,6 @@ async def audit_uploaded_csv(
 
     content = await file.read()
 
-    # File-level validation (size, encoding, extension)
     file_val = validate_csv_file(content, file.filename)
     if not file_val["valid"]:
         raise HTTPException(422, detail={
@@ -452,11 +464,8 @@ async def audit_uploaded_csv(
     except Exception as e:
         raise HTTPException(400, f"Could not parse CSV: {e}")
 
-    # Surface available columns in every 422 so the UI can show them
     available_columns = list(df.columns)
 
-    # Quick column-existence check before running full validation —
-    # gives a clear, actionable error instead of a cryptic validator message
     missing = []
     if target_column not in df.columns:
         missing.append(f"Target column '{target_column}' not found in CSV")
@@ -474,7 +483,6 @@ async def audit_uploaded_csv(
             ],
         })
 
-    # DataFrame-level validation (columns, balance, group sizes, etc.)
     df_val = validate_dataframe(
         df,
         target_column=target_column,
@@ -494,14 +502,12 @@ async def audit_uploaded_csv(
 
     validation_warnings = df_val["warnings"]
 
-    # Upload CSV to Supabase Storage (non-fatal)
     storage_path = public_url = ""
     try:
         storage_path, public_url = storage_ops.upload_csv(content, file.filename)
     except Exception as e:
         logger.warning(f"Storage upload failed (continuing without): {e}")
 
-    # Save upload record to DB (non-fatal)
     upload_id = None
     try:
         upload_record = db_ops.save_upload(
@@ -516,15 +522,11 @@ async def audit_uploaded_csv(
     except Exception as e:
         logger.warning(f"DB upload record failed (continuing): {e}")
 
-    # Build dataset dict
     df["_target_bin"] = (df[target_column].astype(str) == str(positive_label)).astype(int)
 
-    # Binarise protected column — handle both numeric and string (e.g. male/female)
     prot_series = df[protected_column]
     prot_numeric = pd.to_numeric(prot_series, errors="coerce")
     if prot_numeric.isna().mean() > 0.5:
-        # String-valued protected attribute (e.g. "male"/"female", "White"/"Black")
-        # Encode as 0/1 using sorted unique values — last alphabetically = 1
         prot_vals = sorted(prot_series.dropna().unique().tolist())
         df["_prot_bin"] = (prot_series == prot_vals[-1]).astype(int)
         logger.info(
@@ -602,12 +604,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat/{job_id}")
 def chat_with_audit(job_id: str, body: ChatRequest):
-    """
-    Ask Gemini a question about a completed audit.
-    Fetches full context from Supabase.
-
-    Body: { "question": "Why is the bias score so high?", "conversation_history": [...] }
-    """
     result = db_ops.get_audit_result(job_id)
     if not result:
         raise HTTPException(404, f"No audit result for job '{job_id}'")
@@ -635,10 +631,6 @@ def chat_with_audit(job_id: str, body: ChatRequest):
 
 @app.post("/chat/dataset/{name}")
 def chat_with_dataset(name: str, body: ChatRequest):
-    """
-    Same as /chat/{job_id} but looks up the latest audit for a named dataset.
-    Convenience endpoint for the dashboard.
-    """
     result = db_ops.get_latest_result_for_dataset(name)
     if not result:
         raise HTTPException(404, f"No audit result found for dataset '{name}'")
